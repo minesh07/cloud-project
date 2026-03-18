@@ -1,0 +1,205 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {uid}
+    // Fields:
+    //   - uid: string (required)
+    //   - email: string (required, email format)
+    //   - displayName: string (optional)
+    //   - photoURL: string (optional, url format)
+    //   - role: string (required, enum: ['admin', 'student'])
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: courses
+    // Document ID: {courseId}
+    // Fields:
+    //   - title: string (required, < 100 chars)
+    //   - cat: string (required, < 50 chars)
+    //   - instructor: string (required, < 100 chars)
+    //   - duration: string (required, < 20 chars)
+    //   - enrolled: number (required, >= 0)
+    //   - rating: number (required, 0-5)
+    //   - color: string (required, hex format)
+    //   - emoji: string (required, < 10 chars)
+    //   - modules: number (required, >= 0)
+    //   - level: string (required, enum: ['Beginner', 'Intermediate', 'Advanced', 'All Levels'])
+    //   - videoUrl: string (optional, url format)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: videos
+    // Document ID: {videoId}
+    // Fields:
+    //   - title: string (required, < 100 chars)
+    //   - url: string (required, url format)
+    //   - s3Key: string (required, < 255 chars)
+    //   - category: string (required, < 50 chars)
+    //   - tags: list (required, < 10 items, each < 30 chars)
+    //   - createdAt: timestamp (required)
+    //   - authorUid: string (required)
+    //
+    // Collection: quizzes
+    // Document ID: {quizId}
+    // Fields:
+    //   - title: string (required, < 100 chars)
+    //   - course: string (required, < 100 chars)
+    //   - questions: number (required, >= 0)
+    //   - time: number (required, >= 0)
+    //   - passing: number (required, 0-100)
+    //   - attempts: number (required, >= 0)
+    //   - avgScore: number (required, 0-100)
+    //
+    // Collection: progress
+    // Document ID: {progressId}
+    // Fields:
+    //   - uid: string (required)
+    //   - courseId: string (required)
+    //   - percent: number (required, 0-100)
+    //   - lastAccessed: timestamp (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+          request.auth.token.email == "vilvanathanvbmpk@gmail.com"
+        );
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUrl(url) {
+      return url is string && (url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return hasRequiredFields(['uid', 'email', 'role', 'createdAt']) &&
+             hasOnlyAllowedFields(['uid', 'email', 'displayName', 'photoURL', 'role', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             data.email == request.auth.token.email &&
+             isValidEmail(data.email) &&
+             data.role in ['admin', 'student'] &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidCourse(data, isUpdate) {
+      return (isUpdate || hasRequiredFields(['title', 'cat', 'instructor', 'duration', 'enrolled', 'rating', 'color', 'emoji', 'modules', 'level'])) &&
+             (!('title' in data) || (data.title is string && data.title.size() < 100)) &&
+             (!('cat' in data) || (data.cat is string && data.cat.size() < 50)) &&
+             (!('instructor' in data) || (data.instructor is string && data.instructor.size() < 100)) &&
+             (!('duration' in data) || (data.duration is string && data.duration.size() < 20)) &&
+             (!('enrolled' in data) || (data.enrolled is number && data.enrolled >= 0)) &&
+             (!('rating' in data) || (data.rating is number && data.rating >= 0 && data.rating <= 5)) &&
+             (!('color' in data) || (data.color is string && data.color.matches("^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"))) &&
+             (!('emoji' in data) || (data.emoji is string && data.emoji.size() < 10)) &&
+             (!('modules' in data) || (data.modules is number && data.modules >= 0)) &&
+             (!('level' in data) || (data.level in ['Beginner', 'Intermediate', 'Advanced', 'All Levels'])) &&
+             (!('videoUrl' in data) || data.videoUrl == "" || isValidUrl(data.videoUrl)) &&
+             (!('createdAt' in data) || data.createdAt is timestamp) &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    function isValidVideo(data) {
+      return hasRequiredFields(['title', 'url', 's3Key', 'category', 'tags', 'createdAt', 'authorUid']) &&
+             data.title is string && data.title.size() < 100 &&
+             isValidUrl(data.url) &&
+             data.s3Key is string && data.s3Key.size() < 255 &&
+             data.category is string && data.category.size() < 50 &&
+             data.tags is list && data.tags.size() < 10 &&
+             data.createdAt is timestamp &&
+             data.authorUid == request.auth.uid;
+    }
+
+    function isValidQuiz(data) {
+      return hasRequiredFields(['title', 'course', 'questions', 'time', 'passing', 'attempts', 'avgScore']) &&
+             data.title is string && data.title.size() < 100 &&
+             data.course is string && data.course.size() < 100 &&
+             data.questions is number && data.questions >= 0 &&
+             data.time is number && data.time >= 0 &&
+             data.passing is number && data.passing >= 0 && data.passing <= 100 &&
+             data.attempts is number && data.attempts >= 0 &&
+             data.avgScore is number && data.avgScore >= 0 && data.avgScore <= 100;
+    }
+
+    function isValidProgress(data) {
+      return hasRequiredFields(['uid', 'courseId', 'percent', 'lastAccessed']) &&
+             data.uid == request.auth.uid &&
+             data.courseId is string &&
+             data.percent is number && data.percent >= 0 && data.percent <= 100 &&
+             data.lastAccessed is timestamp;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{uid} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (request.resource.data.role == 'student' || isAdmin());
+      allow update: if isAuthenticated() && isOwner(uid) && isValidUser(request.resource.data) && (request.resource.data.role == resource.data.role || isAdmin());
+    }
+
+    match /courses/{courseId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin() && isValidCourse(request.resource.data, false);
+      allow update: if isAdmin() && isValidCourse(request.resource.data, true);
+      allow delete: if isAdmin();
+    }
+
+    match /videos/{videoId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin() && isValidVideo(request.resource.data);
+      allow update: if isAdmin() && isValidVideo(request.resource.data) && request.resource.data.authorUid == resource.data.authorUid;
+      allow delete: if isAdmin();
+    }
+
+    match /quizzes/{quizId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin() && isValidQuiz(request.resource.data);
+    }
+
+    match /progress/{progressId} {
+      allow read: if isAuthenticated() && (isOwner(resource.data.uid) || isAdmin());
+      allow create: if isAuthenticated() && isValidProgress(request.resource.data);
+      allow update: if isAuthenticated() && isOwner(resource.data.uid) && isValidProgress(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

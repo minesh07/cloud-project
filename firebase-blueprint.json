@@ -1,0 +1,87 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and role information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "description": "User email address" },
+        "displayName": { "type": "string", "description": "User display name" },
+        "photoURL": { "type": "string", "description": "User profile photo URL" },
+        "role": { "type": "string", "enum": ["admin", "student"], "description": "User role in the platform" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Account creation timestamp" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Course": {
+      "title": "Course",
+      "description": "Course information",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "cat": { "type": "string" },
+        "instructor": { "type": "string" },
+        "duration": { "type": "string" },
+        "enrolled": { "type": "number" },
+        "rating": { "type": "number" },
+        "color": { "type": "string" },
+        "emoji": { "type": "string" },
+        "modules": { "type": "number" },
+        "level": { "type": "string" },
+        "videoUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "cat", "instructor"]
+    },
+    "Video": {
+      "title": "Video",
+      "description": "Video metadata",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "url": { "type": "string" },
+        "s3Key": { "type": "string" },
+        "category": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "authorUid": { "type": "string" }
+      },
+      "required": ["title", "url", "category"]
+    },
+    "Quiz": {
+      "title": "Quiz",
+      "description": "Quiz information",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "course": { "type": "string" },
+        "questions": { "type": "number" },
+        "time": { "type": "number" },
+        "passing": { "type": "number" },
+        "attempts": { "type": "number" },
+        "avgScore": { "type": "number" }
+      },
+      "required": ["title", "course"]
+    },
+    "Progress": {
+      "title": "Progress",
+      "description": "Student progress in a course",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "courseId": { "type": "string" },
+        "percent": { "type": "number" },
+        "lastAccessed": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "courseId", "percent"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": { "schema": "User", "description": "User profiles" },
+    "/courses/{courseId}": { "schema": "Course", "description": "Course catalog" },
+    "/videos/{videoId}": { "schema": "Video", "description": "Video repository" },
+    "/quizzes/{quizId}": { "schema": "Quiz", "description": "Assessments" },
+    "/progress/{progressId}": { "schema": "Progress", "description": "User progress tracking" }
+  }
+}
