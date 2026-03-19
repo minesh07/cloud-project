@@ -28,7 +28,7 @@ export const COURSES = [
     "emoji": "⚛️",
     "modules": 8,
     "level": "Advanced",
-    "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+    "videoUrl": "https://www.youtube.com/watch?v=9_C8D-9v-0U"
   },
   {
     "id": 2,
@@ -42,7 +42,7 @@ export const COURSES = [
     "emoji": "🧠",
     "modules": 12,
     "level": "Intermediate",
-    "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4"
+    "videoUrl": "https://www.youtube.com/watch?v=GwIo3gDZCVQ"
   },
   {
     "id": 3,
@@ -56,11 +56,11 @@ export const COURSES = [
     "emoji": "🫀",
     "modules": 16,
     "level": "Intermediate",
-    "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+    "videoUrl": "https://www.youtube.com/watch?v=uBGl2BujkPQ"
   },
   {
     "id": 4,
-    "title": "Sustainable Agriculture",
+    "title": "Sustainable Agriculture Systems",
     "cat": "Agriculture",
     "instructor": "Prof. Luis Torres",
     "duration": "10h",
@@ -70,11 +70,11 @@ export const COURSES = [
     "emoji": "🌾",
     "modules": 7,
     "level": "Beginner",
-    "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4"
+    "videoUrl": "https://www.youtube.com/watch?v=5eW6Eagr9Xw"
   },
   {
     "id": 5,
-    "title": "Financial Modeling",
+    "title": "Financial Modeling & Analysis",
     "cat": "Business",
     "instructor": "Emma Williams",
     "duration": "15h",
@@ -84,7 +84,7 @@ export const COURSES = [
     "emoji": "📊",
     "modules": 10,
     "level": "Intermediate",
-    "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4"
+    "videoUrl": "https://www.youtube.com/watch?v=l_8_J9Xv7-o"
   },
   {
     "id": 6,
@@ -98,11 +98,11 @@ export const COURSES = [
     "emoji": "🎨",
     "modules": 6,
     "level": "All Levels",
-    "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4"
+    "videoUrl": "https://www.youtube.com/watch?v=7Zp6ad8pXp0"
   },
   {
     "id": 7,
-    "title": "Medical Course 7",
+    "title": "Clinical Human Anatomy",
     "cat": "Medical",
     "instructor": "Dr. Aisha Mwangi",
     "duration": "8h",
@@ -112,11 +112,11 @@ export const COURSES = [
     "emoji": "🫀",
     "modules": 6,
     "level": "All Levels",
-    "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4"
+    "videoUrl": "https://www.youtube.com/watch?v=fS6uS_VSt_4"
   },
   {
     "id": 8,
-    "title": "Design Course 8",
+    "title": "Principles of Graphic Design",
     "cat": "Design",
     "instructor": "Lisa Wang",
     "duration": "5h",
@@ -126,11 +126,11 @@ export const COURSES = [
     "emoji": "🎨",
     "modules": 19,
     "level": "All Levels",
-    "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4"
+    "videoUrl": "https://www.youtube.com/watch?v=YqQx75OPRa0"
   },
   {
     "id": 9,
-    "title": "Marketing Course 9",
+    "title": "Digital Marketing Strategy",
     "cat": "Marketing",
     "instructor": "Rachel Green",
     "duration": "21h",
@@ -140,11 +140,11 @@ export const COURSES = [
     "emoji": "📈",
     "modules": 7,
     "level": "Intermediate",
-    "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackDualEye.mp4"
+    "videoUrl": "https://www.youtube.com/watch?v=Z_KspIX1oXU"
   },
   {
     "id": 10,
-    "title": "Marketing Course 10",
+    "title": "Social Media Management",
     "cat": "Marketing",
     "instructor": "Rachel Green",
     "duration": "5h",
@@ -154,11 +154,11 @@ export const COURSES = [
     "emoji": "📈",
     "modules": 9,
     "level": "Advanced",
-    "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4"
+    "videoUrl": "https://www.youtube.com/watch?v=vgLpY0YV_S4"
   },
   {
     "id": 11,
-    "title": "Agriculture Course 11",
+    "title": "Organic Farming Techniques",
     "cat": "Agriculture",
     "instructor": "Maria Garcia",
     "duration": "7h",
@@ -168,11 +168,11 @@ export const COURSES = [
     "emoji": "🌾",
     "modules": 18,
     "level": "Beginner",
-    "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+    "videoUrl": "https://www.youtube.com/watch?v=u_p_K_p_K_p"
   },
   {
     "id": 12,
-    "title": "Personal Growth Course 12",
+    "title": "Mindfulness & Resilience",
     "cat": "Personal Growth",
     "instructor": "Brené Brown",
     "duration": "21h",
@@ -182,7 +182,7 @@ export const COURSES = [
     "emoji": "🌱",
     "modules": 12,
     "level": "Intermediate",
-    "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4"
+    "videoUrl": "https://www.youtube.com/watch?v=iCvmsMzlF7o"
   },
   {
     "id": 13,

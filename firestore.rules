@@ -62,6 +62,20 @@ service cloud.firestore {
     //   - percent: number (required, 0-100)
     //   - lastAccessed: timestamp (required)
     //
+    // Collection: likes
+    // Document ID: {likeId}
+    // Fields:
+    //   - uid: string (required)
+    //   - courseId: string (required)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: watchLater
+    // Document ID: {watchLaterId}
+    // Fields:
+    //   - uid: string (required)
+    //   - courseId: string (required)
+    //   - createdAt: timestamp (required)
+    //
     // ===============================================================
 
     // ===============================================================
@@ -162,6 +176,20 @@ service cloud.firestore {
              data.lastAccessed is timestamp;
     }
 
+    function isValidLike(data) {
+      return hasRequiredFields(['uid', 'courseId', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             data.courseId is string &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidWatchLater(data) {
+      return hasRequiredFields(['uid', 'courseId', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             data.courseId is string &&
+             data.createdAt is timestamp;
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -196,6 +224,18 @@ service cloud.firestore {
       allow create: if isAuthenticated() && isValidProgress(request.resource.data);
       allow update: if isAuthenticated() && isOwner(resource.data.uid) && isValidProgress(request.resource.data);
       allow delete: if isAdmin();
+    }
+
+    match /likes/{likeId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidLike(request.resource.data);
+      allow delete: if isAuthenticated() && isOwner(resource.data.uid);
+    }
+
+    match /watchLater/{watchLaterId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidWatchLater(request.resource.data);
+      allow delete: if isAuthenticated() && isOwner(resource.data.uid);
     }
 
     match /{path=**} {

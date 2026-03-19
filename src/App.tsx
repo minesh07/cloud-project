@@ -3,10 +3,13 @@ import {
   LayoutDashboard, BookOpen, Video, ClipboardList, Users, Settings, LogOut, 
   Search, Bell, ChevronRight, Star, Clock, Play, CheckCircle, Upload, Plus, 
   Trash2, Edit, ArrowLeft, Award, Target, Zap, TrendingUp, User, ChevronDown,
-  Menu, X, Filter, MoreVertical, ExternalLink, Download, Share2, Info, VideoOff
+  Menu, X, Filter, MoreVertical, ExternalLink, Download, Share2, Info, VideoOff,
+  Home, Compass, Library, PlaySquare, History, ThumbsUp, Youtube, FileText, Save,
+  PlayCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { GoogleGenAI } from "@google/genai";
+import Markdown from "react-markdown";
 import { COLORS, COURSES, QUIZZES, STATS } from "./constants";
 import { UserRole, Course, Quiz, Stat, UserProfile } from "./types";
 
@@ -30,7 +33,7 @@ interface AuthContextType {
   user: FirebaseUser | null;
   role: UserRole | null;
   loading: boolean;
-  login: () => Promise<void>;
+  login: (role?: UserRole) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -80,9 +83,27 @@ const FirebaseProvider = ({ children }: { children: React.ReactNode }) => {
     return () => unsubscribe();
   }, []);
 
-  const login = async () => {
+  const login = async (preferredRole?: UserRole) => {
     try {
-      await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, googleProvider);
+      const firebaseUser = result.user;
+      
+      // If it's a new user and they chose a role, save it
+      const userDocRef = doc(db, "users", firebaseUser.uid);
+      const userDoc = await getDoc(userDocRef);
+      
+      if (!userDoc.exists()) {
+        const defaultRole: UserRole = firebaseUser.email === "vilvanathanvbmpk@gmail.com" ? "admin" : (preferredRole || "student");
+        await setDoc(userDocRef, {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          displayName: firebaseUser.displayName,
+          photoURL: firebaseUser.photoURL,
+          role: defaultRole,
+          createdAt: serverTimestamp(),
+        });
+        setRole(defaultRole);
+      }
     } catch (error) {
       console.error("Login failed:", error);
     }
@@ -276,6 +297,94 @@ const Toast = ({ message, videoUrl, onClose }: { message: string; videoUrl?: str
 
 const LoginScreen = () => {
   const { login } = useAuth();
+  const [view, setView] = useState<"choice" | "student" | "admin">("choice");
+
+  const renderChoice = () => (
+    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+      <button 
+        onClick={() => setView("student")}
+        style={{
+          width: "100%", padding: "20px", backgroundColor: COLORS.surfaceHigh, color: COLORS.text,
+          borderRadius: "16px", border: `1px solid ${COLORS.border}`, fontWeight: 700, fontSize: "16px",
+          cursor: "pointer", transition: "all 0.2s", display: "flex", alignItems: "center", gap: "16px"
+        }}
+      >
+        <div style={{ width: "48px", height: "48px", backgroundColor: `${COLORS.emerald}20`, borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.emerald }}>
+          <BookOpen size={24} />
+        </div>
+        <div style={{ textAlign: "left" }}>
+          <div style={{ fontSize: "16px", fontWeight: 700 }}>Student Portal</div>
+          <div style={{ fontSize: "13px", color: COLORS.textMuted, fontWeight: 400 }}>Access courses and quizzes</div>
+        </div>
+        <ChevronRight size={20} style={{ marginLeft: "auto", color: COLORS.textDim }} />
+      </button>
+
+      <button 
+        onClick={() => setView("admin")}
+        style={{
+          width: "100%", padding: "20px", backgroundColor: COLORS.surfaceHigh, color: COLORS.text,
+          borderRadius: "16px", border: `1px solid ${COLORS.border}`, fontWeight: 700, fontSize: "16px",
+          cursor: "pointer", transition: "all 0.2s", display: "flex", alignItems: "center", gap: "16px"
+        }}
+      >
+        <div style={{ width: "48px", height: "48px", backgroundColor: `${COLORS.accent}20`, borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.accent }}>
+          <LayoutDashboard size={24} />
+        </div>
+        <div style={{ textAlign: "left" }}>
+          <div style={{ fontSize: "16px", fontWeight: 700 }}>Admin Portal</div>
+          <div style={{ fontSize: "13px", color: COLORS.textMuted, fontWeight: 400 }}>Manage courses and students</div>
+        </div>
+        <ChevronRight size={20} style={{ marginLeft: "auto", color: COLORS.textDim }} />
+      </button>
+    </div>
+  );
+
+  const renderLogin = (role: UserRole) => (
+    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+      <button 
+        onClick={() => setView("choice")}
+        style={{ background: "none", border: "none", color: COLORS.textDim, cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", fontWeight: 600, padding: 0 }}
+      >
+        <ArrowLeft size={16} /> Back to selection
+      </button>
+
+      <div style={{ textAlign: "center", padding: "20px 0" }}>
+        <div style={{ 
+          width: "80px", height: "80px", backgroundColor: role === "admin" ? `${COLORS.accent}15` : `${COLORS.emerald}15`, 
+          borderRadius: "24px", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px",
+          color: role === "admin" ? COLORS.accent : COLORS.emerald
+        }}>
+          {role === "admin" ? <Users size={40} /> : <User size={40} />}
+        </div>
+        <h2 style={{ color: COLORS.text, fontSize: "24px", fontWeight: 700, marginBottom: "8px" }}>
+          {role === "admin" ? "Admin Access" : "Student Access"}
+        </h2>
+        <p style={{ color: COLORS.textMuted, fontSize: "14px" }}>
+          {role === "admin" ? "Authorized personnel only" : "Welcome back, learner!"}
+        </p>
+      </div>
+
+      <button 
+        onClick={() => login(role)}
+        style={{
+          width: "100%", padding: "16px", backgroundColor: "white", color: "#1f2937",
+          borderRadius: "12px", border: "none", fontWeight: 700, fontSize: "16px",
+          cursor: "pointer", transition: "transform 0.1s",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: "12px",
+          boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)"
+        }}
+      >
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style={{ width: "20px", height: "20px" }} />
+        Sign in with Google
+      </button>
+      
+      {role === "admin" && (
+        <p style={{ color: COLORS.textDim, fontSize: "12px", textAlign: "center", fontStyle: "italic" }}>
+          Note: Admin roles are verified by email address.
+        </p>
+      )}
+    </div>
+  );
 
   return (
     <div style={{
@@ -293,10 +402,10 @@ const LoginScreen = () => {
         animate={{ opacity: 1, y: 0 }}
         style={{
           width: "100%",
-          maxWidth: "420px",
+          maxWidth: "460px",
           padding: "48px",
           backgroundColor: COLORS.surface,
-          borderRadius: "24px",
+          borderRadius: "32px",
           border: `1px solid ${COLORS.border}`,
           boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)",
         }}
@@ -310,28 +419,24 @@ const LoginScreen = () => {
             <BookOpen size={32} style={{ margin: "auto" }} />
           </div>
           <h1 style={{ color: COLORS.text, fontSize: "32px", fontWeight: 700, marginBottom: "8px" }}>EduCloud</h1>
-          <p style={{ color: COLORS.textMuted }}>Sign in to your learning account</p>
+          <p style={{ color: COLORS.textMuted }}>Your gateway to knowledge</p>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-          <button 
-            onClick={login}
-            style={{
-              width: "100%", padding: "16px", backgroundColor: "white", color: "#1f2937",
-              borderRadius: "12px", border: "none", fontWeight: 700, fontSize: "16px",
-              cursor: "pointer", marginTop: "12px", transition: "transform 0.1s",
-              display: "flex", alignItems: "center", justifyContent: "center", gap: "12px",
-              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)"
-            }}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={view}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.2 }}
           >
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style={{ width: "20px", height: "20px" }} />
-            Sign in with Google
-          </button>
+            {view === "choice" ? renderChoice() : renderLogin(view as UserRole)}
+          </motion.div>
+        </AnimatePresence>
 
-          <p style={{ color: COLORS.textDim, fontSize: "12px", textAlign: "center", marginTop: "20px" }}>
-            By signing in, you agree to our Terms of Service and Privacy Policy.
-          </p>
-        </div>
+        <p style={{ color: COLORS.textDim, fontSize: "12px", textAlign: "center", marginTop: "32px" }}>
+          By signing in, you agree to our Terms of Service and Privacy Policy.
+        </p>
       </motion.div>
     </div>
   );
@@ -371,10 +476,10 @@ const AdminDashboardPage = ({ onNavigate }: { onNavigate: (tab: string) => void 
               <div key={user.id || i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px", backgroundColor: COLORS.surfaceHigh, borderRadius: "12px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
                   <div style={{ width: "40px", height: "40px", borderRadius: "50%", backgroundColor: COLORS.accent, display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 700 }}>
-                    {user.name?.charAt(0) || "U"}
+                    {user.displayName?.charAt(0) || "U"}
                   </div>
                   <div>
-                    <p style={{ color: COLORS.text, fontWeight: 600 }}>{user.name || "Anonymous User"}</p>
+                    <p style={{ color: COLORS.text, fontWeight: 600 }}>{user.displayName || "Anonymous User"}</p>
                     <p style={{ color: COLORS.textMuted, fontSize: "13px" }}>{user.email}</p>
                   </div>
                 </div>
@@ -535,16 +640,16 @@ const QuizAdminPage = () => {
   };
 
   const handleAddMockQuizzes = async () => {
-    if (confirm("Add mock quizzes to Firestore?")) {
+    if (confirm("Add mock quizzes to Firestore? This will update existing quizzes with the same IDs.")) {
       try {
         for (const quiz of QUIZZES) {
           const { id, ...quizData } = quiz;
-          await addDoc(collection(db, "quizzes"), {
+          await setDoc(doc(db, "quizzes", id.toString()), {
             ...quizData,
-            createdAt: serverTimestamp()
-          });
+            updatedAt: serverTimestamp()
+          }, { merge: true });
         }
-        alert("Mock quizzes added!");
+        alert("Mock quizzes updated!");
       } catch (err) {
         console.error("Error adding mock quizzes:", err);
         alert("Failed to add mock quizzes.");
@@ -560,14 +665,12 @@ const QuizAdminPage = () => {
           <p style={{ color: COLORS.textMuted }}>Create and monitor student assessments.</p>
         </div>
         <div style={{ display: "flex", gap: "12px" }}>
-          {quizzes.length === 0 && (
-            <button 
-              onClick={handleAddMockQuizzes}
-              style={{ padding: "12px 24px", backgroundColor: COLORS.surfaceHigh, color: COLORS.text, border: `1px solid ${COLORS.border}`, borderRadius: "12px", fontWeight: 600, cursor: "pointer" }}
-            >
-              Seed Mock Quizzes
-            </button>
-          )}
+          <button 
+            onClick={handleAddMockQuizzes}
+            style={{ padding: "12px 24px", backgroundColor: `${COLORS.accent}15`, color: COLORS.accent, border: `1px solid ${COLORS.accent}30`, borderRadius: "12px", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}
+          >
+            <Zap size={18} /> Sync with Defaults
+          </button>
           <button 
             onClick={() => setIsAddingQuiz(true)}
             style={{ padding: "12px 24px", backgroundColor: COLORS.accent, color: "white", border: "none", borderRadius: "12px", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}
@@ -608,7 +711,7 @@ const QuizAdminPage = () => {
                     <div style={{ display: "flex", gap: "12px" }}>
                       <button style={{ color: COLORS.textMuted, background: "none", border: "none", cursor: "pointer" }}><Edit size={18} /></button>
                       <button 
-                        onClick={() => quiz.id && handleDeleteQuiz(quiz.id)}
+                        onClick={() => quiz.id && handleDeleteQuiz(String(quiz.id))}
                         style={{ color: COLORS.rose, background: "none", border: "none", cursor: "pointer" }}
                       >
                         <Trash2 size={18} />
@@ -625,103 +728,148 @@ const QuizAdminPage = () => {
   );
 };
 
-const StudentDashboardPage = ({ onSelectCourse }: { onSelectCourse: (course: Course) => void }) => {
-  const { user } = useAuth();
-  const { data: courses, loading: coursesLoading } = useFirestoreCollection<Course>("courses");
-  const { data: progress, loading: progressLoading } = useFirestoreCollection<any>("progress", [where("uid", "==", user?.uid || "")]);
-  
-  const enrolledCourseIds = progress.map(p => p.courseId);
-  const enrolledCourses = courses.filter(c => enrolledCourseIds.includes(c.id?.toString()));
-  
-  const displayCourses = enrolledCourses.length > 0 ? enrolledCourses : [];
-  const loading = coursesLoading || progressLoading;
+interface VideoCardProps {
+  course: Course;
+  onClick: () => void;
+  key?: any;
+}
 
+const VideoCard = ({ course, onClick }: VideoCardProps) => {
   return (
-    <div style={{ padding: "40px" }}>
-      <div style={{ marginBottom: "40px" }}>
-        <h2 style={{ color: COLORS.text, fontSize: "28px", fontWeight: 700, marginBottom: "8px" }}>Welcome back, {user?.displayName || "Student"}!</h2>
-        <p style={{ color: COLORS.textMuted }}>You are enrolled in {enrolledCourses.length} courses.</p>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "32px" }}>
-        <div>
-          <h3 style={{ color: COLORS.text, fontSize: "20px", fontWeight: 700, marginBottom: "24px" }}>Continue Learning</h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-            {loading ? (
-              <div style={{ color: COLORS.textMuted }}>Loading your courses...</div>
-            ) : displayCourses.length > 0 ? (
-              displayCourses.map(course => {
-                const courseProgress = progress.find(p => p.courseId === course.id?.toString())?.percent || 0;
-                return (
-                  <div 
-                    key={course.id} 
-                    onClick={() => onSelectCourse(course)}
-                    style={{ backgroundColor: COLORS.surface, padding: "24px", borderRadius: "20px", border: `1px solid ${COLORS.border}`, display: "flex", gap: "24px", cursor: "pointer" }}
-                  >
-                    <div style={{ width: "120px", height: "80px", borderRadius: "12px", backgroundColor: course.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "32px" }}>
-                      {course.emoji}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
-                        <div>
-                          <Badge color={course.color}>{course.cat}</Badge>
-                          <h4 style={{ color: COLORS.text, fontSize: "18px", fontWeight: 700, marginTop: "8px" }}>{course.title}</h4>
-                        </div>
-                        <span style={{ color: COLORS.textMuted, fontSize: "14px", fontWeight: 600 }}>{courseProgress}% Complete</span>
-                      </div>
-                      <ProgressBar progress={courseProgress} color={course.color} />
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div style={{ padding: "40px", textAlign: "center", backgroundColor: COLORS.surface, borderRadius: "20px", border: `1px dashed ${COLORS.border}` }}>
-                <BookOpen size={48} style={{ color: COLORS.textDim, marginBottom: "16px" }} />
-                <p style={{ color: COLORS.text }}>You haven't enrolled in any courses yet.</p>
-                <p style={{ color: COLORS.textMuted, fontSize: "14px", marginTop: "8px" }}>Check out the Course Catalog to get started!</p>
-              </div>
-            )}
-          </div>
+    <motion.div
+      whileHover={{ scale: 1.02 }}
+      onClick={onClick}
+      style={{ cursor: "pointer", display: "flex", flexDirection: "column", gap: "12px" }}
+    >
+      <div style={{ position: "relative", width: "100%", aspectRatio: "16/9", borderRadius: "12px", overflow: "hidden", backgroundColor: course.color }}>
+        <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "48px" }}>
+          {course.emoji}
         </div>
-
-      <div style={{ backgroundColor: COLORS.surface, padding: "32px", borderRadius: "24px", border: `1px solid ${COLORS.border}` }}>
-        <h3 style={{ color: COLORS.text, fontSize: "20px", fontWeight: 700, marginBottom: "24px" }}>Your Stats</h3>
-        <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-            <div style={{ width: "48px", height: "48px", borderRadius: "12px", backgroundColor: `${COLORS.gold}15`, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.gold }}>
-              <Award size={24} />
-            </div>
-            <div>
-              <p style={{ color: COLORS.text, fontWeight: 700, fontSize: "18px" }}>12</p>
-              <p style={{ color: COLORS.textMuted, fontSize: "13px" }}>Certificates Earned</p>
-            </div>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-            <div style={{ width: "48px", height: "48px", borderRadius: "12px", backgroundColor: `${COLORS.accent}15`, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.accent }}>
-              <Zap size={24} />
-            </div>
-            <div>
-              <p style={{ color: COLORS.text, fontWeight: 700, fontSize: "18px" }}>450</p>
-              <p style={{ color: COLORS.textMuted, fontSize: "13px" }}>Learning Points</p>
-            </div>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-            <div style={{ width: "48px", height: "48px", borderRadius: "12px", backgroundColor: `${COLORS.emerald}15`, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.emerald }}>
-              <Target size={24} />
-            </div>
-            <div>
-              <p style={{ color: COLORS.text, fontWeight: 700, fontSize: "18px" }}>85%</p>
-              <p style={{ color: COLORS.textMuted, fontSize: "13px" }}>Avg. Quiz Score</p>
-            </div>
-          </div>
+        <div style={{ position: "absolute", bottom: "8px", right: "8px", backgroundColor: "rgba(0,0,0,0.8)", color: "white", padding: "2px 6px", borderRadius: "4px", fontSize: "12px", fontWeight: 600 }}>
+          {course.duration || "12:45"}
         </div>
       </div>
-    </div>
-  </div>
-);
+      <div style={{ display: "flex", gap: "12px" }}>
+        <div style={{ width: "36px", height: "36px", borderRadius: "50%", backgroundColor: COLORS.surfaceHigh, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <User size={20} color={COLORS.textDim} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h3 style={{ fontSize: "15px", fontWeight: 600, color: COLORS.text, marginBottom: "4px", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: "1.4" }}>
+            {course.title}
+          </h3>
+          <p style={{ fontSize: "13px", color: COLORS.textDim, marginBottom: "2px" }}>{course.instructor}</p>
+          <p style={{ fontSize: "13px", color: COLORS.textDim }}>
+            {course.enrolled || 0} views • 2 days ago
+          </p>
+        </div>
+        <button style={{ padding: "4px", color: COLORS.textDim }}>
+          <MoreVertical size={18} />
+        </button>
+      </div>
+    </motion.div>
+  );
 };
 
-const CourseCatalogPage = ({ onSelectCourse }: { onSelectCourse: (course: Course) => void }) => {
+const HomeFeedPage = ({ onSelectCourse }: { onSelectCourse: (course: Course) => void }) => {
+  const { user } = useAuth();
+  const { data: courses } = useFirestoreCollection<Course>("courses");
+  const { data: progress } = useFirestoreCollection<any>("progress", [where("uid", "==", user?.uid || "")]);
+  const categories = ["All", "Development", "Design", "Business", "Marketing", "Music", "Photography"];
+  const [activeCat, setActiveCat] = useState("All");
+
+  const continueLearning = courses.filter(c => progress.some(p => p.courseId === c.id?.toString()))
+    .map(c => {
+      const p = progress.find(prog => prog.courseId === c.id?.toString());
+      return { ...c, progress: p?.percent || 0, lastAccessed: p?.lastAccessed };
+    })
+    .sort((a, b) => (b.lastAccessed?.toMillis() || 0) - (a.lastAccessed?.toMillis() || 0))
+    .slice(0, 3);
+
+  const filteredCourses = activeCat === "All" 
+    ? courses 
+    : courses.filter(c => c.cat === activeCat);
+
+  return (
+    <div style={{ padding: "24px 40px" }}>
+      {/* Welcome Header */}
+      <div style={{ marginBottom: "40px" }}>
+        <h1 style={{ fontSize: "32px", fontWeight: 800, color: COLORS.text, marginBottom: "8px" }}>
+          Welcome back, {user?.displayName?.split(" ")[0] || "Learner"}! 👋
+        </h1>
+        <p style={{ color: COLORS.textMuted, fontSize: "16px" }}>Ready to continue your learning journey?</p>
+      </div>
+
+      {/* Continue Learning Section */}
+      {continueLearning.length > 0 && (
+        <section style={{ marginBottom: "48px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px" }}>
+            <PlayCircle size={24} color={COLORS.accent} />
+            <h2 style={{ fontSize: "20px", fontWeight: 700 }}>Continue Learning</h2>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "24px" }}>
+            {continueLearning.map(course => (
+              <motion.div
+                key={course.id}
+                whileHover={{ y: -5 }}
+                onClick={() => onSelectCourse(course)}
+                style={{ 
+                  backgroundColor: COLORS.surface, 
+                  borderRadius: "20px", 
+                  border: `1px solid ${COLORS.border}`, 
+                  padding: "20px", 
+                  cursor: "pointer",
+                  display: "flex",
+                  gap: "16px",
+                  alignItems: "center"
+                }}
+              >
+                <div style={{ 
+                  width: "80px", height: "80px", borderRadius: "12px", backgroundColor: course.color, 
+                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: "32px", flexShrink: 0 
+                }}>
+                  {course.emoji}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h4 style={{ fontSize: "16px", fontWeight: 700, marginBottom: "8px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{course.title}</h4>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                    <span style={{ fontSize: "12px", color: COLORS.textDim }}>{course.progress}% Complete</span>
+                  </div>
+                  <ProgressBar progress={course.progress} color={course.color} />
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Category Pills */}
+      <div style={{ display: "flex", gap: "12px", marginBottom: "24px", overflowX: "auto", paddingBottom: "8px", scrollbarWidth: "none" }}>
+        {categories.map(cat => (
+          <button
+            key={cat}
+            onClick={() => setActiveCat(cat)}
+            style={{
+              padding: "8px 16px", borderRadius: "8px", border: "none", cursor: "pointer", whiteSpace: "nowrap",
+              backgroundColor: activeCat === cat ? COLORS.text : COLORS.surfaceHigh,
+              color: activeCat === cat ? COLORS.primary : COLORS.text,
+              fontSize: "14px", fontWeight: 600, transition: "all 0.2s"
+            }}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "32px 16px" }}>
+        {filteredCourses.map(course => (
+          <VideoCard key={course.id} course={course} onClick={() => onSelectCourse(course)} />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const ExplorePage = ({ onSelectCourse }: { onSelectCourse: (course: Course) => void }) => {
   const { user } = useAuth();
   const { data: courses, loading: coursesLoading } = useFirestoreCollection<Course>("courses");
   const { data: progress, loading: progressLoading } = useFirestoreCollection<any>("progress", [where("uid", "==", user?.uid || "")]);
@@ -731,28 +879,32 @@ const CourseCatalogPage = ({ onSelectCourse }: { onSelectCourse: (course: Course
   const displayCourses = courses.length > 0 ? courses : COURSES;
   const loading = coursesLoading || progressLoading;
 
-  const handleEnroll = async (courseId: string | number) => {
+  const handleEnroll = async (course: Course) => {
     if (!user) {
       alert("Please sign in to enroll.");
       return;
     }
+    if (!course.id) return;
+
     try {
       await addDoc(collection(db, "progress"), {
         uid: user.uid,
-        courseId: courseId.toString(),
+        courseId: course.id.toString(),
         percent: 0,
         lastAccessed: serverTimestamp()
       });
       
       // Increment enrolled count in course document
-      const courseRef = doc(db, "courses", courseId.toString());
+      const courseRef = doc(db, "courses", course.id.toString());
       const courseSnap = await getDoc(courseRef);
       if (courseSnap.exists()) {
         await updateDoc(courseRef, {
           enrolled: (courseSnap.data().enrolled || 0) + 1
         });
       }
-      alert("Successfully enrolled!");
+      
+      // Immediately play the course
+      onSelectCourse(course);
     } catch (err) {
       console.error("Enrollment error:", err);
       alert("Failed to enroll.");
@@ -765,11 +917,11 @@ const CourseCatalogPage = ({ onSelectCourse }: { onSelectCourse: (course: Course
   );
 
   return (
-    <div style={{ padding: "40px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "40px" }}>
-        <div>
-          <h2 style={{ color: COLORS.text, fontSize: "28px", fontWeight: 700, marginBottom: "8px" }}>Course Catalog</h2>
-          <p style={{ color: COLORS.textMuted }}>Explore our wide range of professional courses.</p>
+    <div style={{ padding: "24px 40px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "32px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <Compass size={28} color={COLORS.accent} />
+          <h2 style={{ color: COLORS.text, fontSize: "28px", fontWeight: 800 }}>Explore</h2>
         </div>
         <div style={{ display: "flex", gap: "12px" }}>
           <div style={{ position: "relative" }}>
@@ -779,67 +931,253 @@ const CourseCatalogPage = ({ onSelectCourse }: { onSelectCourse: (course: Course
               placeholder="Search courses..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              style={{ padding: "12px 12px 12px 40px", backgroundColor: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: "10px", color: COLORS.text, outline: "none", width: "240px" }}
+              style={{ padding: "10px 12px 10px 40px", backgroundColor: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: "8px", color: COLORS.text, outline: "none", width: "240px", fontSize: "14px" }}
             />
           </div>
-          <button style={{ padding: "12px", backgroundColor: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: "10px", color: COLORS.text }}><Filter size={18} /></button>
+          <button style={{ padding: "10px", backgroundColor: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: "8px", color: COLORS.text }}><Filter size={18} /></button>
         </div>
+      </div>
+
+      {/* Trending Section */}
+      <div style={{ marginBottom: "48px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px" }}>
+          <TrendingUp size={24} color={COLORS.rose} />
+          <h2 style={{ fontSize: "20px", fontWeight: 700 }}>Trending Courses</h2>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "24px" }}>
+          {displayCourses.slice(0, 4).map(course => (
+            <VideoCard key={course.id} course={course} onClick={() => onSelectCourse(course)} />
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+        <h2 style={{ fontSize: "20px", fontWeight: 700 }}>All Courses</h2>
+        <p style={{ color: COLORS.textDim, fontSize: "14px" }}>{filteredCourses.length} courses available</p>
       </div>
 
       {loading && courses.length === 0 ? (
         <div style={{ color: COLORS.textMuted }}>Loading catalog...</div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "24px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "32px 16px" }}>
           {filteredCourses.map(course => (
-            <motion.div 
-              key={course.id}
-              whileHover={{ y: -5 }}
-              onClick={() => onSelectCourse(course)}
-              style={{ backgroundColor: COLORS.surface, borderRadius: "20px", border: `1px solid ${COLORS.border}`, overflow: "hidden", cursor: "pointer" }}
-            >
-              <div style={{ height: "160px", backgroundColor: course.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "64px" }}>
-                {course.emoji}
-              </div>
-              <div style={{ padding: "24px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
-                  <Badge color={course.color}>{course.cat}</Badge>
-                  <div style={{ display: "flex", alignItems: "center", gap: "4px", color: COLORS.gold, fontSize: "14px", fontWeight: 700 }}>
-                    <Star size={14} fill={COLORS.gold} /> {course.rating}
-                  </div>
-                </div>
-                <h4 style={{ color: COLORS.text, fontSize: "18px", fontWeight: 700, marginBottom: "8px" }}>{course.title}</h4>
-                <p style={{ color: COLORS.textMuted, fontSize: "14px", marginBottom: "20px" }}>By {course.instructor}</p>
-                
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "20px", borderTop: `1px solid ${COLORS.border}` }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "4px", color: COLORS.textDim, fontSize: "13px" }}>
-                      <Clock size={14} /> {course.duration}
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "4px", color: COLORS.textDim, fontSize: "13px" }}>
-                      <Users size={14} /> {course.enrolled}
-                    </div>
-                  </div>
-                  {enrolledCourseIds.includes(course.id?.toString()) ? (
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); onSelectCourse(course); }}
-                      style={{ color: COLORS.emerald, fontWeight: 700, fontSize: "14px", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "4px" }}
-                    >
-                      Continue <ChevronRight size={16} />
-                    </button>
-                  ) : (
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); handleEnroll(course.id!); }}
-                      style={{ color: COLORS.accent, fontWeight: 700, fontSize: "14px", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "4px" }}
-                    >
-                      Enroll Now <Plus size={16} />
-                    </button>
-                  )}
-                </div>
-              </div>
-            </motion.div>
+            <VideoCard key={course.id} course={course} onClick={() => onSelectCourse(course)} />
           ))}
         </div>
       )}
+    </div>
+  );
+};
+
+const SubscriptionsPage = ({ onSelectCourse }: { onSelectCourse: (course: Course) => void }) => {
+  const { user } = useAuth();
+  const { data: progress } = useFirestoreCollection<any>("progress", [where("uid", "==", user?.uid || "")]);
+  const { data: courses } = useFirestoreCollection<Course>("courses");
+  
+  const enrolledCourses = courses.filter(c => progress.some(p => p.courseId === c.id?.toString()));
+  
+  return (
+    <div style={{ padding: "24px 40px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px" }}>
+        <Youtube size={24} color="#FF0000" fill="#FF0000" />
+        <h2 style={{ fontSize: "24px", fontWeight: 700 }}>Your Subscriptions</h2>
+      </div>
+      
+      {enrolledCourses.length > 0 ? (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "32px 16px" }}>
+          {enrolledCourses.map(course => (
+            <VideoCard key={course.id} course={course} onClick={() => onSelectCourse(course)} />
+          ))}
+        </div>
+      ) : (
+        <div style={{ textAlign: "center", padding: "80px 0", color: COLORS.textMuted }}>
+          <VideoOff size={48} style={{ marginBottom: "16px", opacity: 0.5 }} />
+          <p style={{ fontSize: "18px", fontWeight: 600, color: COLORS.text }}>No subscriptions yet</p>
+          <p style={{ fontSize: "14px", marginTop: "8px" }}>Explore courses and enroll to see them here.</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const LikedVideosPage = ({ onSelectCourse }: { onSelectCourse: (course: Course) => void }) => {
+  const { user } = useAuth();
+  const { data: likes } = useFirestoreCollection<any>("likes", [where("uid", "==", user?.uid || "")]);
+  const { data: courses } = useFirestoreCollection<Course>("courses");
+  
+  const likedCourses = courses.filter(c => likes.some(l => l.courseId === c.id?.toString()));
+
+  return (
+    <div style={{ padding: "40px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "32px" }}>
+        <div style={{ width: "48px", height: "48px", borderRadius: "16px", backgroundColor: `${COLORS.emerald}20`, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.emerald }}>
+          <ThumbsUp size={24} fill={COLORS.emerald} />
+        </div>
+        <div>
+          <h2 style={{ fontSize: "28px", fontWeight: 700 }}>Liked Videos</h2>
+          <p style={{ color: COLORS.textDim }}>{likedCourses.length} videos you've liked</p>
+        </div>
+      </div>
+
+      {likedCourses.length > 0 ? (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "32px" }}>
+          {likedCourses.map(course => (
+            <VideoCard key={course.id} course={course} onClick={() => onSelectCourse(course)} />
+          ))}
+        </div>
+      ) : (
+        <div style={{ textAlign: "center", padding: "80px 40px", backgroundColor: COLORS.surface, borderRadius: "24px", border: `1px solid ${COLORS.border}` }}>
+          <ThumbsUp size={48} color={COLORS.textDim} style={{ marginBottom: "20px" }} />
+          <h3 style={{ fontSize: "20px", fontWeight: 700, marginBottom: "8px" }}>No liked videos yet</h3>
+          <p style={{ color: COLORS.textDim, maxWidth: "400px", margin: "0 auto" }}>
+            When you like a video, it will appear here for easy access.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const ResearchHistoryPage = () => {
+  const { user } = useAuth();
+  const { data: research } = useFirestoreCollection<any>("savedResearch", [where("uid", "==", user?.uid || "")]);
+
+  return (
+    <div style={{ padding: "40px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "32px" }}>
+        <div style={{ width: "48px", height: "48px", borderRadius: "16px", backgroundColor: `${COLORS.sky}20`, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.sky }}>
+          <TrendingUp size={24} />
+        </div>
+        <div>
+          <h2 style={{ fontSize: "28px", fontWeight: 700 }}>AI Research Library</h2>
+          <p style={{ color: COLORS.textDim }}>{research.length} saved research reports</p>
+        </div>
+      </div>
+
+      {research.length > 0 ? (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "24px" }}>
+          {research.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)).map(item => (
+            <motion.div 
+              key={item.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              style={{ backgroundColor: COLORS.surface, padding: "32px", borderRadius: "24px", border: `1px solid ${COLORS.border}` }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px" }}>
+                <div>
+                  <h3 style={{ fontSize: "20px", fontWeight: 700, color: COLORS.text, marginBottom: "4px" }}>{item.courseTitle}</h3>
+                  <p style={{ color: COLORS.textDim, fontSize: "12px" }}>Generated on {item.createdAt?.toDate().toLocaleDateString()}</p>
+                </div>
+                <button 
+                  onClick={async () => {
+                    if (confirm("Are you sure you want to delete this research?")) {
+                      await deleteDoc(doc(db, "savedResearch", item.id));
+                    }
+                  }}
+                  style={{ color: COLORS.rose, background: "none", border: "none", cursor: "pointer" }}
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+              <div className="markdown-body" style={{ color: COLORS.textMuted, fontSize: "14px", maxHeight: "300px", overflowY: "auto", padding: "16px", backgroundColor: COLORS.surfaceHigh, borderRadius: "12px" }}>
+                <Markdown>{item.content}</Markdown>
+              </div>
+              {item.sources && item.sources.length > 0 && (
+                <div style={{ marginTop: "20px", display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                  {item.sources.map((source: any, idx: number) => (
+                    <a key={idx} href={source.uri} target="_blank" rel="noopener noreferrer" style={{ fontSize: "11px", color: COLORS.sky, textDecoration: "none", backgroundColor: `${COLORS.sky}10`, padding: "4px 8px", borderRadius: "6px" }}>
+                      {source.title || "Source"}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ textAlign: "center", padding: "80px 40px", backgroundColor: COLORS.surface, borderRadius: "24px", border: `1px solid ${COLORS.border}` }}>
+          <Search size={48} color={COLORS.textDim} style={{ marginBottom: "20px" }} />
+          <h3 style={{ fontSize: "20px", fontWeight: 700, marginBottom: "8px" }}>Your research library is empty</h3>
+          <p style={{ color: COLORS.textDim, maxWidth: "400px", margin: "0 auto" }}>
+            Use the AI Research tool in any course to generate insights and save them here.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const LibraryPage = ({ onSelectCourse }: { onSelectCourse: (course: Course) => void }) => {
+  const { user } = useAuth();
+  const { data: progress } = useFirestoreCollection<any>("progress", [where("uid", "==", user?.uid || "")]);
+  const { data: likes } = useFirestoreCollection<any>("likes", [where("uid", "==", user?.uid || "")]);
+  const { data: watchLater } = useFirestoreCollection<any>("watchLater", [where("uid", "==", user?.uid || "")]);
+  const { data: courses } = useFirestoreCollection<Course>("courses");
+  
+  const history = courses.filter(c => progress.some(p => p.courseId === c.id?.toString()))
+    .sort((a, b) => {
+      const pA = progress.find(p => p.courseId === a.id?.toString());
+      const pB = progress.find(p => p.courseId === b.id?.toString());
+      return (pB?.lastAccessed?.toMillis() || 0) - (pA?.lastAccessed?.toMillis() || 0);
+    });
+
+  const likedCourses = courses.filter(c => likes.some(l => l.courseId === c.id?.toString()));
+  const watchLaterCourses = courses.filter(c => watchLater.some(w => w.courseId === c.id?.toString()));
+
+  return (
+    <div style={{ padding: "24px 40px" }}>
+      <section style={{ marginBottom: "48px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px" }}>
+          <History size={24} color={COLORS.accent} />
+          <h2 style={{ fontSize: "24px", fontWeight: 700 }}>History</h2>
+        </div>
+        
+        {history.length > 0 ? (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "24px" }}>
+            {history.slice(0, 6).map(course => (
+              <VideoCard key={course.id} course={course} onClick={() => onSelectCourse(course)} />
+            ))}
+          </div>
+        ) : (
+          <p style={{ color: COLORS.textDim }}>No history yet.</p>
+        )}
+      </section>
+
+      <section style={{ marginBottom: "48px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px" }}>
+          <Clock size={24} color={COLORS.rose} />
+          <h2 style={{ fontSize: "24px", fontWeight: 700 }}>Watch Later</h2>
+        </div>
+        {watchLaterCourses.length > 0 ? (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "24px" }}>
+            {watchLaterCourses.map(course => (
+              <VideoCard key={course.id} course={course} onClick={() => onSelectCourse(course)} />
+            ))}
+          </div>
+        ) : (
+          <div style={{ textAlign: "center", padding: "40px", backgroundColor: COLORS.surface, borderRadius: "16px", border: `1px solid ${COLORS.border}` }}>
+            <p style={{ color: COLORS.textDim }}>Videos you save for later will appear here.</p>
+          </div>
+        )}
+      </section>
+
+      <section>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px" }}>
+          <ThumbsUp size={24} color={COLORS.emerald} />
+          <h2 style={{ fontSize: "24px", fontWeight: 700 }}>Liked Videos</h2>
+        </div>
+        {likedCourses.length > 0 ? (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "24px" }}>
+            {likedCourses.map(course => (
+              <VideoCard key={course.id} course={course} onClick={() => onSelectCourse(course)} />
+            ))}
+          </div>
+        ) : (
+          <div style={{ textAlign: "center", padding: "40px", backgroundColor: COLORS.surface, borderRadius: "16px", border: `1px solid ${COLORS.border}` }}>
+            <p style={{ color: COLORS.textDim }}>Your liked videos will appear here.</p>
+          </div>
+        )}
+      </section>
     </div>
   );
 };
@@ -959,10 +1297,108 @@ const QuizTakingPage = ({ quiz, onBack }: { quiz: Quiz; onBack: () => void }) =>
 };
 
 const CoursePlayerPage = ({ course, onBack }: { course: Course; onBack: () => void }) => {
+  const { user } = useAuth();
   const [videoUrl, setVideoUrl] = useState(course.videoUrl);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStatus, setGenerationStatus] = useState("");
   const [hasApiKey, setHasApiKey] = useState(false);
+  const [playerTab, setPlayerTab] = useState<"overview" | "research" | "guide" | "quiz" | "notes">("overview");
+  
+  const { data: likes } = useFirestoreCollection<any>("likes", [where("uid", "==", user?.uid || "")]);
+  const { data: watchLater } = useFirestoreCollection<any>("watchLater", [where("uid", "==", user?.uid || "")]);
+  const { data: notesData } = useFirestoreCollection<any>("notes", [
+    where("uid", "==", user?.uid || ""),
+    where("courseId", "==", course.id?.toString() || "")
+  ]);
+
+  const [notes, setNotes] = useState("");
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [isSummarizing, setIsSummarizing] = useState(false);
+  const [noteSummary, setNoteSummary] = useState("");
+
+  const isLiked = likes.some(l => l.courseId === course.id?.toString());
+  const isWatchLater = watchLater.some(w => w.courseId === course.id?.toString());
+
+  useEffect(() => {
+    if (notesData.length > 0) {
+      setNotes(notesData[0].content || "");
+      setNoteSummary(notesData[0].summary || "");
+    }
+  }, [notesData]);
+
+  const handleSaveNotes = async () => {
+    if (!user || !course.id) return;
+    setIsSavingNotes(true);
+    try {
+      const existing = notesData[0];
+      if (existing) {
+        await updateDoc(doc(db, "notes", existing.id), {
+          content: notes,
+          summary: noteSummary,
+          updatedAt: serverTimestamp()
+        });
+      } else {
+        await addDoc(collection(db, "notes"), {
+          uid: user.uid,
+          courseId: course.id.toString(),
+          courseTitle: course.title,
+          content: notes,
+          summary: noteSummary,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      }
+    } catch (error) {
+      console.error("Error saving notes:", error);
+    } finally {
+      setIsSavingNotes(false);
+    }
+  };
+
+  const handleAiSummarizeNotes = async () => {
+    if (!notes.trim()) return;
+    setIsSummarizing(true);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `Summarize these study notes for the course "${course.title}". Make it concise and highlight key takeaways:\n\n${notes}`,
+      });
+      setNoteSummary(response.text || "");
+    } catch (error) {
+      console.error("AI Summarization error:", error);
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
+
+  const handleToggleLike = async () => {
+    if (!user) return;
+    const existingLike = likes.find(l => l.courseId === course.id?.toString());
+    if (existingLike) {
+      await deleteDoc(doc(db, "likes", existingLike.id));
+    } else {
+      await addDoc(collection(db, "likes"), {
+        uid: user.uid,
+        courseId: course.id?.toString(),
+        createdAt: serverTimestamp()
+      });
+    }
+  };
+
+  const handleToggleWatchLater = async () => {
+    if (!user) return;
+    const existing = watchLater.find(w => w.courseId === course.id?.toString());
+    if (existing) {
+      await deleteDoc(doc(db, "watchLater", existing.id));
+    } else {
+      await addDoc(collection(db, "watchLater"), {
+        uid: user.uid,
+        courseId: course.id?.toString(),
+        createdAt: serverTimestamp()
+      });
+    }
+  };
 
   useEffect(() => {
     setVideoUrl(course.videoUrl);
@@ -1064,116 +1500,735 @@ const CoursePlayerPage = ({ course, onBack }: { course: Course; onBack: () => vo
     }
   };
 
+  const [isGeneratingGuide, setIsGeneratingGuide] = useState(false);
+  const [studyGuide, setStudyGuide] = useState<string | null>(null);
+  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
+  const [aiQuiz, setAiQuiz] = useState<any | null>(null);
+  const [quizStep, setQuizStep] = useState(0);
+  const [quizScore, setQuizScore] = useState(0);
+  const [quizFinished, setQuizFinished] = useState(false);
+  const [isResearching, setIsResearching] = useState(false);
+  const [researchResult, setResearchResult] = useState<string | null>(null);
+  const [researchSources, setResearchSources] = useState<any[]>([]);
+  const [isSavingResearch, setIsSavingResearch] = useState(false);
+
+  const handleResearch = async () => {
+    setIsResearching(true);
+    setResearchResult(null);
+    setResearchSources([]);
+    
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `Provide an exhaustive, high-level research summary for the course: "${course.title}" in the field of ${course.cat}. 
+        Include:
+        1. Current global industry state in 2026 with market statistics.
+        2. Top 5 emerging technologies or methodologies disrupting the field.
+        3. Detailed career outlook, including specific job roles and salary benchmarks (Junior to Lead).
+        4. A 6-month advanced learning roadmap beyond this course.
+        5. Potential ethical considerations or future challenges.
+        Format with professional headings, bullet points, and bold key terms.`,
+        config: {
+          tools: [{ googleSearch: {} }],
+        },
+      });
+
+      setResearchResult(response.text || "No research found.");
+      
+      // Extract URLs from grounding metadata
+      const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+      if (chunks) {
+        setResearchSources(chunks.map((chunk: any) => chunk.web).filter(Boolean));
+      }
+    } catch (error) {
+      console.error("Research error:", error);
+      alert("Failed to perform AI research.");
+    } finally {
+      setIsResearching(false);
+    }
+  };
+
+  const handleSaveResearch = async () => {
+    if (!user || !researchResult) return;
+    setIsSavingResearch(true);
+    try {
+      await addDoc(collection(db, "savedResearch"), {
+        uid: user.uid,
+        courseId: course.id?.toString(),
+        courseTitle: course.title,
+        content: researchResult,
+        sources: researchSources,
+        createdAt: serverTimestamp()
+      });
+      alert("Research saved to your library!");
+    } catch (error) {
+      console.error("Save research error:", error);
+      alert("Failed to save research.");
+    } finally {
+      setIsSavingResearch(false);
+    }
+  };
+
+  const handleGenerateStudyGuide = async () => {
+    setIsGeneratingGuide(true);
+    setStudyGuide(null);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `Create a professional, structured study guide for the course: "${course.title}". 
+        Sections:
+        - Executive Summary
+        - Core Concepts (Detailed)
+        - Key Terminology
+        - Practical Applications
+        - 5 Advanced Review Questions
+        Format in Markdown with bold headers and clean lists.`,
+      });
+      setStudyGuide(response.text || "Failed to generate guide.");
+    } catch (error) {
+      console.error("Study guide error:", error);
+      alert("Failed to generate study guide.");
+    } finally {
+      setIsGeneratingGuide(false);
+    }
+  };
+
+  const handleGenerateQuiz = async () => {
+    setIsGeneratingQuiz(true);
+    setAiQuiz(null);
+    setQuizStep(0);
+    setQuizScore(0);
+    setQuizFinished(false);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `Generate a 5-question multiple choice quiz based on the course title: "${course.title}". 
+        Return ONLY a JSON object with this structure:
+        {
+          "title": "AI Generated Quiz",
+          "questions": [
+            {
+              "question": "...",
+              "options": ["...", "...", "...", "..."],
+              "correctIndex": 0
+            }
+          ]
+        }`,
+        config: {
+          responseMimeType: "application/json"
+        }
+      });
+      
+      const quizData = JSON.parse(response.text || "{}");
+      setAiQuiz(quizData);
+    } catch (error) {
+      console.error("Quiz generation error:", error);
+      alert("Failed to generate AI quiz.");
+    } finally {
+      setIsGeneratingQuiz(false);
+    }
+  };
+
+  const handleQuizAnswer = (optIdx: number) => {
+    if (!aiQuiz) return;
+    const currentQ = aiQuiz.questions[quizStep];
+    if (optIdx === currentQ.correctIndex) {
+      setQuizScore(prev => prev + 1);
+    }
+    
+    if (quizStep < aiQuiz.questions.length - 1) {
+      setQuizStep(prev => prev + 1);
+    } else {
+      setQuizFinished(true);
+    }
+  };
+
   return (
     <div style={{ padding: "40px", maxWidth: "1000px", margin: "0 auto" }}>
       <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: "8px", color: COLORS.textMuted, background: "none", border: "none", cursor: "pointer", marginBottom: "32px", fontWeight: 600 }}>
         <ArrowLeft size={18} /> Back to Catalog
       </button>
 
-      <div style={{ backgroundColor: COLORS.surface, borderRadius: "24px", border: `1px solid ${COLORS.border}`, overflow: "hidden" }}>
-        <div style={{ position: "relative", paddingTop: "56.25%", backgroundColor: "black" }}>
-          {isGenerating ? (
-            <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "white", gap: "20px", background: "linear-gradient(45deg, #0f172a, #1e293b)" }}>
-              <motion.div 
-                animate={{ rotate: 360 }}
-                transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
-                style={{ width: "60px", height: "60px", border: "4px solid rgba(255,255,255,0.1)", borderTop: `4px solid ${COLORS.accent}`, borderRadius: "50%" }}
+      <div style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
+        <div style={{ backgroundColor: COLORS.surface, borderRadius: "24px", border: `1px solid ${COLORS.border}`, overflow: "hidden" }}>
+          <div style={{ position: "relative", paddingTop: "56.25%", backgroundColor: "black" }}>
+            {isGenerating ? (
+              <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "white", gap: "20px", background: "linear-gradient(45deg, #0f172a, #1e293b)" }}>
+                <motion.div 
+                  animate={{ rotate: 360 }}
+                  transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+                  style={{ width: "60px", height: "60px", border: "4px solid rgba(255,255,255,0.1)", borderTop: `4px solid ${COLORS.accent}`, borderRadius: "50%" }}
+                />
+                <div style={{ textAlign: "center" }}>
+                  <p style={{ fontSize: "18px", fontWeight: 700, marginBottom: "8px" }}>Generating AI Lesson</p>
+                  <p style={{ color: COLORS.textDim, fontSize: "14px" }}>{generationStatus}</p>
+                </div>
+              </div>
+            ) : youtubeId ? (
+              <iframe
+                style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
+                src={`https://www.youtube.com/embed/${youtubeId}?autoplay=0`}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                title="Course Video"
               />
-              <div style={{ textAlign: "center" }}>
-                <p style={{ fontSize: "18px", fontWeight: 700, marginBottom: "8px" }}>Generating AI Lesson</p>
-                <p style={{ color: COLORS.textDim, fontSize: "14px" }}>{generationStatus}</p>
+            ) : videoUrl ? (
+              <video 
+                key={videoUrl}
+                src={videoUrl} 
+                controls 
+                style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
+              />
+            ) : (
+              <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: COLORS.textMuted, gap: "16px", padding: "40px", textAlign: "center" }}>
+                <VideoOff size={48} />
+                <div>
+                  <p style={{ color: COLORS.text, fontWeight: 600, fontSize: "18px" }}>No video URL provided</p>
+                  <p style={{ fontSize: "14px", marginTop: "4px" }}>Please update the course with a valid YouTube or MP4 link.</p>
+                </div>
+              </div>
+            )}
+          </div>
+          <div style={{ padding: "32px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" }}>
+              <div style={{ flex: 1 }}>
+                <Badge color={course.color}>{course.cat}</Badge>
+                <h2 style={{ color: COLORS.text, fontSize: "28px", fontWeight: 700, marginTop: "12px", marginBottom: "8px" }}>{course.title}</h2>
+                <p style={{ color: COLORS.textMuted }}>Instructor: {course.instructor}</p>
+                
+                <div style={{ display: "flex", gap: "16px", marginTop: "20px" }}>
+                  <button 
+                    onClick={handleToggleLike}
+                    style={{ 
+                      display: "flex", alignItems: "center", gap: "8px", background: "none", border: "none", 
+                      color: isLiked ? COLORS.accent : COLORS.textDim, cursor: "pointer", fontWeight: 600, fontSize: "14px" 
+                    }}
+                  >
+                    <ThumbsUp size={20} fill={isLiked ? COLORS.accent : "none"} /> {isLiked ? "Liked" : "Like"}
+                  </button>
+                  <button 
+                    onClick={handleToggleWatchLater}
+                    style={{ 
+                      display: "flex", alignItems: "center", gap: "8px", background: "none", border: "none", 
+                      color: isWatchLater ? COLORS.rose : COLORS.textDim, cursor: "pointer", fontWeight: 600, fontSize: "14px" 
+                    }}
+                  >
+                    <Clock size={20} fill={isWatchLater ? COLORS.rose : "none"} /> {isWatchLater ? "Added" : "Watch Later"}
+                  </button>
+                  <button 
+                    style={{ 
+                      display: "flex", alignItems: "center", gap: "8px", background: "none", border: "none", 
+                      color: COLORS.textDim, cursor: "pointer", fontWeight: 600, fontSize: "14px" 
+                    }}
+                  >
+                    <Share2 size={20} /> Share
+                  </button>
+                </div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "12px" }}>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "4px", color: COLORS.gold, fontSize: "18px", fontWeight: 700, marginBottom: "4px" }}>
+                    <Star size={18} fill={COLORS.gold} /> {course.rating}
+                  </div>
+                  <p style={{ color: COLORS.textDim, fontSize: "14px" }}>{course.enrolled.toLocaleString()} Students</p>
+                </div>
+                <div style={{ display: "flex", gap: "12px" }}>
+                  <button 
+                    onClick={handleResearch}
+                    disabled={isResearching}
+                    style={{ 
+                      padding: "10px 20px", 
+                      backgroundColor: isResearching ? COLORS.surfaceHigh : `${COLORS.sky}20`, 
+                      color: COLORS.sky, 
+                      border: `1px solid ${COLORS.sky}40`, 
+                      borderRadius: "10px", 
+                      fontWeight: 700, 
+                      fontSize: "13px",
+                      cursor: isResearching ? "not-allowed" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px"
+                    }}
+                  >
+                    <Search size={16} /> {isResearching ? "Researching..." : "AI Research"}
+                  </button>
+                  <button 
+                    onClick={handleGenerateStudyGuide}
+                    disabled={isGeneratingGuide}
+                    style={{ 
+                      padding: "10px 20px", 
+                      backgroundColor: isGeneratingGuide ? COLORS.surfaceHigh : `${COLORS.emerald}20`, 
+                      color: COLORS.emerald, 
+                      border: `1px solid ${COLORS.emerald}40`, 
+                      borderRadius: "10px", 
+                      fontWeight: 700, 
+                      fontSize: "13px",
+                      cursor: isGeneratingGuide ? "not-allowed" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px"
+                    }}
+                  >
+                    <ClipboardList size={16} /> {isGeneratingGuide ? "Generating..." : "Study Guide"}
+                  </button>
+                  <button 
+                    onClick={handleGenerateQuiz}
+                    disabled={isGeneratingQuiz}
+                    style={{ 
+                      padding: "10px 20px", 
+                      backgroundColor: isGeneratingQuiz ? COLORS.surfaceHigh : `${COLORS.gold}20`, 
+                      color: COLORS.gold, 
+                      border: `1px solid ${COLORS.gold}40`, 
+                      borderRadius: "10px", 
+                      fontWeight: 700, 
+                      fontSize: "13px",
+                      cursor: isGeneratingQuiz ? "not-allowed" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px"
+                    }}
+                  >
+                    <Target size={16} /> {isGeneratingQuiz ? "Creating..." : "Quiz Me"}
+                  </button>
+                  <button 
+                    onClick={generateAiVideo}
+                    disabled={isGenerating}
+                    style={{ 
+                      padding: "10px 20px", 
+                      backgroundColor: isGenerating ? COLORS.surfaceHigh : `${COLORS.accent}20`, 
+                      color: COLORS.accent, 
+                      border: `1px solid ${COLORS.accent}40`, 
+                      borderRadius: "10px", 
+                      fontWeight: 700, 
+                      fontSize: "13px",
+                      cursor: isGenerating ? "not-allowed" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px"
+                    }}
+                  >
+                    <Zap size={16} /> {isGenerating ? "Generating..." : "Regenerate with AI"}
+                  </button>
+                </div>
               </div>
             </div>
-          ) : youtubeId ? (
-            <iframe
-              style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
-              src={`https://www.youtube.com/embed/${youtubeId}?autoplay=0`}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              title="Course Video"
-            />
-          ) : videoUrl ? (
-            <video 
-              key={videoUrl}
-              src={videoUrl} 
-              controls 
-              style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
-            />
-          ) : (
-            <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: COLORS.textMuted, gap: "16px", padding: "40px", textAlign: "center" }}>
-              <VideoOff size={48} />
-              <div>
-                <p style={{ color: COLORS.text, fontWeight: 600, fontSize: "18px" }}>No video URL provided</p>
-                <p style={{ fontSize: "14px", marginTop: "4px" }}>Please update the course with a valid YouTube or MP4 link.</p>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "24px", paddingTop: "24px", borderTop: `1px solid ${COLORS.border}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <div style={{ width: "40px", height: "40px", borderRadius: "10px", backgroundColor: `${COLORS.accent}15`, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.accent }}>
+                  <Clock size={20} />
+                </div>
+                <div>
+                  <p style={{ color: COLORS.textDim, fontSize: "12px", fontWeight: 600 }}>Duration</p>
+                  <p style={{ color: COLORS.text, fontWeight: 700 }}>{course.duration}</p>
+                </div>
               </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <div style={{ width: "40px", height: "40px", borderRadius: "10px", backgroundColor: `${COLORS.emerald}15`, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.emerald }}>
+                  <CheckCircle size={20} />
+                </div>
+                <div>
+                  <p style={{ color: COLORS.textDim, fontSize: "12px", fontWeight: 600 }}>Modules</p>
+                  <p style={{ color: COLORS.text, fontWeight: 700 }}>{course.modules} Lessons</p>
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <div style={{ width: "40px", height: "40px", borderRadius: "10px", backgroundColor: `${COLORS.gold}15`, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.gold }}>
+                  <Award size={20} />
+                </div>
+                <div>
+                  <p style={{ color: COLORS.textDim, fontSize: "12px", fontWeight: 600 }}>Level</p>
+                  <p style={{ color: COLORS.text, fontWeight: 700 }}>{course.level}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs Navigation */}
+        <div style={{ display: "flex", gap: "8px", borderBottom: `1px solid ${COLORS.border}`, paddingBottom: "1px" }}>
+          {[
+            { id: "overview", label: "Overview", icon: Info },
+            { id: "research", label: "AI Research", icon: Search },
+            { id: "guide", label: "Study Guide", icon: ClipboardList },
+            { id: "quiz", label: "Quiz", icon: Target },
+            { id: "notes", label: "My Notes", icon: FileText },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setPlayerTab(tab.id as any)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "12px 24px",
+                backgroundColor: playerTab === tab.id ? COLORS.surface : "transparent",
+                color: playerTab === tab.id ? COLORS.accent : COLORS.textDim,
+                border: "none",
+                borderBottom: `2px solid ${playerTab === tab.id ? COLORS.accent : "transparent"}`,
+                fontSize: "14px",
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.2s",
+                borderRadius: "12px 12px 0 0"
+              }}
+            >
+              <tab.icon size={16} />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ minHeight: "400px" }}>
+          {/* Overview Tab */}
+          {playerTab === "overview" && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              style={{ display: "flex", flexDirection: "column", gap: "24px", padding: "24px 0" }}
+            >
+              <div style={{ backgroundColor: COLORS.surface, padding: "32px", borderRadius: "24px", border: `1px solid ${COLORS.border}` }}>
+                <h3 style={{ color: COLORS.text, fontSize: "20px", fontWeight: 700, marginBottom: "16px" }}>Course Description</h3>
+                <p style={{ color: COLORS.textMuted, lineHeight: "1.7", fontSize: "16px" }}>
+                  Welcome to {course.title}. This comprehensive course is designed to take you from the basics to advanced concepts in {course.cat}. 
+                  Led by {course.instructor}, you'll explore key principles, practical applications, and industry best practices.
+                </p>
+              </div>
+              
+              <div style={{ backgroundColor: COLORS.surface, padding: "32px", borderRadius: "24px", border: `1px solid ${COLORS.border}` }}>
+                <h3 style={{ color: COLORS.text, fontSize: "20px", fontWeight: 700, marginBottom: "16px" }}>What you'll learn</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                  {[
+                    "Master core fundamentals and advanced techniques",
+                    "Build real-world projects and case studies",
+                    "Understand industry-standard tools and workflows",
+                    "Develop problem-solving skills for complex challenges"
+                  ].map((item, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: "12px", color: COLORS.textMuted }}>
+                      <CheckCircle size={18} style={{ color: COLORS.emerald }} />
+                      <span style={{ fontSize: "14px" }}>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* AI Research Result */}
+          {playerTab === "research" && (
+            <div style={{ padding: "24px 0" }}>
+              {!researchResult && !isResearching ? (
+                <div style={{ textAlign: "center", padding: "60px", backgroundColor: COLORS.surface, borderRadius: "24px", border: `1px solid ${COLORS.border}` }}>
+                  <Search size={48} style={{ color: COLORS.textDim, margin: "0 auto 20px", opacity: 0.5 }} />
+                  <h3 style={{ color: COLORS.text, fontSize: "20px", fontWeight: 700, marginBottom: "12px" }}>Deep AI Research</h3>
+                  <p style={{ color: COLORS.textMuted, marginBottom: "24px", maxWidth: "400px", margin: "0 auto 24px" }}>
+                    Generate a comprehensive research report about this topic including market trends, career outlook, and future predictions.
+                  </p>
+                  <button 
+                    onClick={handleResearch}
+                    style={{ padding: "12px 32px", backgroundColor: COLORS.accent, color: "white", border: "none", borderRadius: "12px", fontWeight: 700, cursor: "pointer" }}
+                  >
+                    Start Research
+                  </button>
+                </div>
+              ) : (
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  style={{ backgroundColor: COLORS.surface, padding: "32px", borderRadius: "24px", border: `1px solid ${COLORS.border}` }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                      <div style={{ width: "40px", height: "40px", borderRadius: "10px", backgroundColor: `${COLORS.sky}15`, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.sky }}>
+                        <Search size={20} />
+                      </div>
+                      <h3 style={{ color: COLORS.text, fontSize: "20px", fontWeight: 700 }}>AI Research Insights</h3>
+                    </div>
+                    {researchResult && (
+                      <button 
+                        onClick={handleSaveResearch}
+                        disabled={isSavingResearch}
+                        style={{ 
+                          padding: "8px 16px", 
+                          backgroundColor: COLORS.surfaceHigh, 
+                          color: COLORS.sky, 
+                          border: `1px solid ${COLORS.sky}30`, 
+                          borderRadius: "8px", 
+                          fontSize: "12px", 
+                          fontWeight: 600, 
+                          cursor: isSavingResearch ? "not-allowed" : "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px"
+                        }}
+                      >
+                        <Library size={14} /> {isSavingResearch ? "Saving..." : "Save to Library"}
+                      </button>
+                    )}
+                  </div>
+                  
+                  {isResearching ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                      <div style={{ height: "20px", width: "100%", backgroundColor: COLORS.surfaceHigh, borderRadius: "4px", animation: "pulse 1.5s infinite" }} />
+                      <div style={{ height: "20px", width: "90%", backgroundColor: COLORS.surfaceHigh, borderRadius: "4px", animation: "pulse 1.5s infinite" }} />
+                      <div style={{ height: "20px", width: "95%", backgroundColor: COLORS.surfaceHigh, borderRadius: "4px", animation: "pulse 1.5s infinite" }} />
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ color: COLORS.textMuted, lineHeight: "1.6", fontSize: "15px", whiteSpace: "pre-wrap", marginBottom: "24px" }}>
+                        {researchResult}
+                      </div>
+                      {researchSources.length > 0 && (
+                        <div style={{ paddingTop: "24px", borderTop: `1px solid ${COLORS.border}` }}>
+                          <p style={{ color: COLORS.text, fontSize: "14px", fontWeight: 700, marginBottom: "12px" }}>Sources & Further Reading:</p>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "12px" }}>
+                            {researchSources.map((source, idx) => (
+                              <a 
+                                key={idx} 
+                                href={source.uri} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                style={{ 
+                                  display: "flex", alignItems: "center", gap: "6px", padding: "6px 12px", 
+                                  backgroundColor: COLORS.surfaceHigh, borderRadius: "8px", color: COLORS.sky, 
+                                  fontSize: "12px", textDecoration: "none", border: `1px solid ${COLORS.border}`
+                                }}
+                              >
+                                <ExternalLink size={12} /> {source.title || "Source"}
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </motion.div>
+              )}
             </div>
           )}
-        </div>
-        <div style={{ padding: "32px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" }}>
-            <div>
-              <Badge color={course.color}>{course.cat}</Badge>
-              <h2 style={{ color: COLORS.text, fontSize: "28px", fontWeight: 700, marginTop: "12px", marginBottom: "8px" }}>{course.title}</h2>
-              <p style={{ color: COLORS.textMuted }}>Instructor: {course.instructor}</p>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "12px" }}>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "4px", color: COLORS.gold, fontSize: "18px", fontWeight: 700, marginBottom: "4px" }}>
-                  <Star size={18} fill={COLORS.gold} /> {course.rating}
-                </div>
-                <p style={{ color: COLORS.textDim, fontSize: "14px" }}>{course.enrolled.toLocaleString()} Students</p>
-              </div>
-              <button 
-                onClick={generateAiVideo}
-                disabled={isGenerating}
-                style={{ 
-                  padding: "10px 20px", 
-                  backgroundColor: isGenerating ? COLORS.surfaceHigh : `${COLORS.accent}20`, 
-                  color: COLORS.accent, 
-                  border: `1px solid ${COLORS.accent}40`, 
-                  borderRadius: "10px", 
-                  fontWeight: 700, 
-                  fontSize: "13px",
-                  cursor: isGenerating ? "not-allowed" : "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px"
-                }}
-              >
-                <Zap size={16} /> {isGenerating ? "Generating..." : "Regenerate with AI"}
-              </button>
-            </div>
-          </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "24px", paddingTop: "24px", borderTop: `1px solid ${COLORS.border}` }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <div style={{ width: "40px", height: "40px", borderRadius: "10px", backgroundColor: `${COLORS.accent}15`, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.accent }}>
-                <Clock size={20} />
-              </div>
-              <div>
-                <p style={{ color: COLORS.textDim, fontSize: "12px", fontWeight: 600 }}>Duration</p>
-                <p style={{ color: COLORS.text, fontWeight: 700 }}>{course.duration}</p>
-              </div>
+          {/* AI Study Guide */}
+          {playerTab === "guide" && (
+            <div style={{ padding: "24px 0" }}>
+              {!studyGuide && !isGeneratingGuide ? (
+                <div style={{ textAlign: "center", padding: "60px", backgroundColor: COLORS.surface, borderRadius: "24px", border: `1px solid ${COLORS.border}` }}>
+                  <ClipboardList size={48} style={{ color: COLORS.textDim, margin: "0 auto 20px", opacity: 0.5 }} />
+                  <h3 style={{ color: COLORS.text, fontSize: "20px", fontWeight: 700, marginBottom: "12px" }}>AI Study Guide</h3>
+                  <p style={{ color: COLORS.textMuted, marginBottom: "24px", maxWidth: "400px", margin: "0 auto 24px" }}>
+                    Generate a structured study guide with core concepts, terminology, and review questions.
+                  </p>
+                  <button 
+                    onClick={handleGenerateStudyGuide}
+                    style={{ padding: "12px 32px", backgroundColor: COLORS.accent, color: "white", border: "none", borderRadius: "12px", fontWeight: 700, cursor: "pointer" }}
+                  >
+                    Generate Guide
+                  </button>
+                </div>
+              ) : (
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  style={{ backgroundColor: COLORS.surface, padding: "32px", borderRadius: "24px", border: `1px solid ${COLORS.border}` }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                      <div style={{ width: "40px", height: "40px", borderRadius: "10px", backgroundColor: `${COLORS.emerald}15`, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.emerald }}>
+                        <ClipboardList size={20} />
+                      </div>
+                      <h3 style={{ color: COLORS.text, fontSize: "20px", fontWeight: 700 }}>AI Study Guide</h3>
+                    </div>
+                    {studyGuide && (
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(studyGuide);
+                          alert("Study guide copied to clipboard!");
+                        }}
+                        style={{ padding: "8px 16px", backgroundColor: COLORS.surfaceHigh, color: COLORS.text, border: `1px solid ${COLORS.border}`, borderRadius: "8px", fontSize: "12px", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}
+                      >
+                        <Download size={14} /> Copy to Clipboard
+                      </button>
+                    )}
+                  </div>
+                  
+                  {isGeneratingGuide ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                      <div style={{ height: "20px", width: "100%", backgroundColor: COLORS.surfaceHigh, borderRadius: "4px", animation: "pulse 1.5s infinite" }} />
+                      <div style={{ height: "20px", width: "90%", backgroundColor: COLORS.surfaceHigh, borderRadius: "4px", animation: "pulse 1.5s infinite" }} />
+                    </div>
+                  ) : (
+                    <div className="markdown-body" style={{ color: COLORS.textMuted, fontSize: "15px" }}>
+                      <Markdown>{studyGuide}</Markdown>
+                    </div>
+                  )}
+                </motion.div>
+              )}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <div style={{ width: "40px", height: "40px", borderRadius: "10px", backgroundColor: `${COLORS.emerald}15`, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.emerald }}>
-                <CheckCircle size={20} />
-              </div>
-              <div>
-                <p style={{ color: COLORS.textDim, fontSize: "12px", fontWeight: 600 }}>Modules</p>
-                <p style={{ color: COLORS.text, fontWeight: 700 }}>{course.modules} Lessons</p>
-              </div>
+          )}
+
+          {/* AI Quiz */}
+          {playerTab === "quiz" && (
+            <div style={{ padding: "24px 0" }}>
+              {!aiQuiz && !isGeneratingQuiz ? (
+                <div style={{ textAlign: "center", padding: "60px", backgroundColor: COLORS.surface, borderRadius: "24px", border: `1px solid ${COLORS.border}` }}>
+                  <Target size={48} style={{ color: COLORS.textDim, margin: "0 auto 20px", opacity: 0.5 }} />
+                  <h3 style={{ color: COLORS.text, fontSize: "20px", fontWeight: 700, marginBottom: "12px" }}>AI Practice Quiz</h3>
+                  <p style={{ color: COLORS.textMuted, marginBottom: "24px", maxWidth: "400px", margin: "0 auto 24px" }}>
+                    Test your knowledge with a dynamically generated quiz based on this course.
+                  </p>
+                  <button 
+                    onClick={handleGenerateQuiz}
+                    style={{ padding: "12px 32px", backgroundColor: COLORS.accent, color: "white", border: "none", borderRadius: "12px", fontWeight: 700, cursor: "pointer" }}
+                  >
+                    Start Quiz
+                  </button>
+                </div>
+              ) : (
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  style={{ backgroundColor: COLORS.surface, padding: "32px", borderRadius: "24px", border: `1px solid ${COLORS.border}` }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px" }}>
+                    <div style={{ width: "40px", height: "40px", borderRadius: "10px", backgroundColor: `${COLORS.gold}15`, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.gold }}>
+                      <Target size={20} />
+                    </div>
+                    <h3 style={{ color: COLORS.text, fontSize: "20px", fontWeight: 700 }}>AI Practice Quiz</h3>
+                  </div>
+                  
+                  {isGeneratingQuiz ? (
+                    <div style={{ textAlign: "center", padding: "40px" }}>
+                      <motion.div 
+                        animate={{ rotate: 360 }}
+                        transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+                        style={{ width: "40px", height: "40px", border: `3px solid ${COLORS.surfaceHigh}`, borderTop: `3px solid ${COLORS.gold}`, borderRadius: "50%", margin: "0 auto 16px" }}
+                      />
+                      <p style={{ color: COLORS.textMuted }}>Generating your personalized quiz...</p>
+                    </div>
+                  ) : quizFinished ? (
+                    <div style={{ textAlign: "center", padding: "40px" }}>
+                      <div style={{ width: "80px", height: "80px", borderRadius: "50%", backgroundColor: `${COLORS.emerald}15`, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.emerald, margin: "0 auto 24px" }}>
+                        <Award size={40} />
+                      </div>
+                      <h4 style={{ fontSize: "24px", fontWeight: 700, color: COLORS.text, marginBottom: "8px" }}>Quiz Completed!</h4>
+                      <p style={{ fontSize: "18px", color: COLORS.textMuted, marginBottom: "24px" }}>You scored <span style={{ color: COLORS.emerald, fontWeight: 800 }}>{quizScore}</span> out of {aiQuiz.questions.length}</p>
+                      <button 
+                        onClick={handleGenerateQuiz}
+                        style={{ padding: "12px 24px", backgroundColor: COLORS.accent, color: "white", border: "none", borderRadius: "12px", fontWeight: 700, cursor: "pointer" }}
+                      >
+                        Retake Quiz
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <p style={{ color: COLORS.textDim, fontSize: "14px", fontWeight: 600 }}>Question {quizStep + 1} of {aiQuiz.questions.length}</p>
+                        <div style={{ height: "6px", width: "100px", backgroundColor: COLORS.surfaceHigh, borderRadius: "3px", overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${((quizStep + 1) / aiQuiz.questions.length) * 100}%`, backgroundColor: COLORS.gold }} />
+                        </div>
+                      </div>
+                      
+                      <div style={{ padding: "32px", backgroundColor: COLORS.surfaceHigh, borderRadius: "20px", border: `1px solid ${COLORS.border}` }}>
+                        <p style={{ color: COLORS.text, fontSize: "18px", fontWeight: 600, marginBottom: "24px", lineHeight: 1.5 }}>{aiQuiz.questions[quizStep].question}</p>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "12px" }}>
+                          {aiQuiz.questions[quizStep].options.map((opt: string, optIdx: number) => (
+                            <button 
+                              key={optIdx}
+                              onClick={() => handleQuizAnswer(optIdx)}
+                              style={{ 
+                                padding: "16px 20px", backgroundColor: COLORS.surface, border: `1px solid ${COLORS.border}`, 
+                                borderRadius: "12px", color: COLORS.text, fontSize: "15px", cursor: "pointer", textAlign: "left",
+                                transition: "all 0.2s", display: "flex", alignItems: "center", gap: "12px"
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.borderColor = COLORS.gold}
+                              onMouseLeave={(e) => e.currentTarget.style.borderColor = COLORS.border}
+                            >
+                              <div style={{ width: "24px", height: "24px", borderRadius: "50%", border: `2px solid ${COLORS.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: 700, color: COLORS.textDim }}>
+                                {String.fromCharCode(65 + optIdx)}
+                              </div>
+                              {opt}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              )}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <div style={{ width: "40px", height: "40px", borderRadius: "10px", backgroundColor: `${COLORS.gold}15`, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.gold }}>
-                <Award size={20} />
+          )}
+
+          {/* My Notes Tab */}
+          {playerTab === "notes" && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              style={{ padding: "24px 0" }}
+            >
+              <div style={{ backgroundColor: COLORS.surface, padding: "32px", borderRadius: "24px", border: `1px solid ${COLORS.border}` }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                    <div style={{ width: "40px", height: "40px", borderRadius: "10px", backgroundColor: `${COLORS.accent}15`, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.accent }}>
+                      <FileText size={20} />
+                    </div>
+                    <h3 style={{ color: COLORS.text, fontSize: "20px", fontWeight: 700 }}>My Study Notes</h3>
+                  </div>
+                  <div style={{ display: "flex", gap: "12px" }}>
+                    <button 
+                      onClick={handleAiSummarizeNotes}
+                      disabled={isSummarizing || !notes.trim()}
+                      style={{ 
+                        padding: "8px 16px", backgroundColor: COLORS.surfaceHigh, color: COLORS.accent, 
+                        border: `1px solid ${COLORS.accent}30`, borderRadius: "8px", fontSize: "12px", 
+                        fontWeight: 600, cursor: (isSummarizing || !notes.trim()) ? "not-allowed" : "pointer",
+                        display: "flex", alignItems: "center", gap: "8px"
+                      }}
+                    >
+                      <Zap size={14} /> {isSummarizing ? "Summarizing..." : "AI Summarize"}
+                    </button>
+                    <button 
+                      onClick={handleSaveNotes}
+                      disabled={isSavingNotes}
+                      style={{ 
+                        padding: "8px 16px", backgroundColor: COLORS.accent, color: "white", 
+                        border: "none", borderRadius: "8px", fontSize: "12px", 
+                        fontWeight: 600, cursor: isSavingNotes ? "not-allowed" : "pointer",
+                        display: "flex", alignItems: "center", gap: "8px"
+                      }}
+                    >
+                      <Save size={14} /> {isSavingNotes ? "Saving..." : "Save Notes"}
+                    </button>
+                  </div>
+                </div>
+
+                <textarea 
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Start taking notes here... Your progress is saved automatically."
+                  style={{ 
+                    width: "100%", height: "300px", backgroundColor: COLORS.surfaceHigh, 
+                    border: `1px solid ${COLORS.border}`, borderRadius: "16px", padding: "20px",
+                    color: COLORS.text, fontSize: "16px", lineHeight: "1.6", resize: "none",
+                    outline: "none", transition: "border-color 0.2s"
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = COLORS.accent}
+                  onBlur={(e) => e.target.style.borderColor = COLORS.border}
+                />
+
+                {noteSummary && (
+                  <div style={{ marginTop: "32px", padding: "24px", backgroundColor: `${COLORS.accent}05`, borderRadius: "16px", border: `1px dashed ${COLORS.accent}30` }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px", color: COLORS.accent }}>
+                      <Zap size={16} />
+                      <span style={{ fontWeight: 700, fontSize: "14px", textTransform: "uppercase", letterSpacing: "0.05em" }}>AI Summary</span>
+                    </div>
+                    <p style={{ color: COLORS.textMuted, fontSize: "15px", lineHeight: "1.6" }}>{noteSummary}</p>
+                  </div>
+                )}
               </div>
-              <div>
-                <p style={{ color: COLORS.textDim, fontSize: "12px", fontWeight: 600 }}>Level</p>
-                <p style={{ color: COLORS.text, fontWeight: 700 }}>{course.level}</p>
-              </div>
-            </div>
-          </div>
+            </motion.div>
+          )}
         </div>
       </div>
     </div>
@@ -1199,8 +2254,8 @@ const CourseForm = ({ onClose, initialData }: { onClose: () => void, initialData
     e.preventDefault();
     try {
       if (initialData?.id) {
-        const { id, ...updateData } = formData;
-        await updateDoc(doc(db, "courses", id.toString()), {
+        const { id, ...updateData } = formData as Course;
+        await updateDoc(doc(db, "courses", String(id)), {
           ...updateData,
           updatedAt: serverTimestamp()
         });
@@ -1332,16 +2387,16 @@ const CoursesAdminPage = ({ onSelectCourse }: { onSelectCourse: (course: Course)
   const displayCourses = courses.length > 0 ? courses : COURSES;
 
   const handleAddMockData = async () => {
-    if (confirm("Add mock courses to Firestore?")) {
+    if (confirm("Add mock courses to Firestore? This will update existing courses with the same IDs.")) {
       try {
         for (const course of COURSES) {
           const { id, ...courseData } = course;
-          await addDoc(collection(db, "courses"), {
+          await setDoc(doc(db, "courses", id.toString()), {
             ...courseData,
-            createdAt: serverTimestamp()
-          });
+            updatedAt: serverTimestamp()
+          }, { merge: true });
         }
-        alert("Mock data added successfully!");
+        alert("Mock data updated successfully!");
       } catch (err) {
         console.error("Error adding mock data:", err);
         alert("Failed to add mock data.");
@@ -1368,14 +2423,12 @@ const CoursesAdminPage = ({ onSelectCourse }: { onSelectCourse: (course: Course)
           <p style={{ color: COLORS.textMuted }}>Manage your course catalog and curriculum.</p>
         </div>
         <div style={{ display: "flex", gap: "12px" }}>
-          {courses.length === 0 && (
-            <button 
-              onClick={handleAddMockData}
-              style={{ padding: "12px 24px", backgroundColor: COLORS.surfaceHigh, color: COLORS.text, border: `1px solid ${COLORS.border}`, borderRadius: "12px", fontWeight: 600, cursor: "pointer" }}
-            >
-              Seed Mock Data
-            </button>
-          )}
+          <button 
+            onClick={handleAddMockData}
+            style={{ padding: "12px 24px", backgroundColor: `${COLORS.accent}15`, color: COLORS.accent, border: `1px solid ${COLORS.accent}30`, borderRadius: "12px", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}
+          >
+            <Zap size={18} /> Sync with Defaults
+          </button>
           <button 
             onClick={() => setIsAddingCourse(true)}
             style={{ padding: "12px 24px", backgroundColor: COLORS.accent, color: "white", border: "none", borderRadius: "12px", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}
@@ -1457,12 +2510,12 @@ const VideoManagementPage = ({ onSelectCourse }: { onSelectCourse: (course: Cour
         setUpdatingId("seeding");
         for (const course of COURSES) {
           const { id, ...courseData } = course;
-          await addDoc(collection(db, "courses"), {
+          await setDoc(doc(db, "courses", id.toString()), {
             ...courseData,
-            createdAt: serverTimestamp()
-          });
+            updatedAt: serverTimestamp()
+          }, { merge: true });
         }
-        alert("Mock data added successfully!");
+        alert("Mock data updated successfully!");
       } catch (err) {
         console.error("Error adding mock data:", err);
         alert("Failed to add mock data.");
@@ -1500,13 +2553,21 @@ const VideoManagementPage = ({ onSelectCourse }: { onSelectCourse: (course: Cour
           <p style={{ color: COLORS.textMuted }}>Batch update original course video URLs for all 300 courses.</p>
         </div>
         <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
-          {courses.length === 0 && (
+          {courses.length === 0 ? (
             <button 
               onClick={handleAddMockData}
               disabled={updatingId === "seeding"}
               style={{ padding: "12px 24px", backgroundColor: COLORS.surfaceHigh, color: COLORS.text, border: `1px solid ${COLORS.border}`, borderRadius: "12px", fontWeight: 600, cursor: "pointer" }}
             >
               {updatingId === "seeding" ? "Seeding..." : "Seed Data to Firestore"}
+            </button>
+          ) : (
+            <button 
+              onClick={handleAddMockData}
+              disabled={updatingId === "seeding"}
+              style={{ padding: "12px 24px", backgroundColor: `${COLORS.accent}20`, color: COLORS.accent, border: `1px solid ${COLORS.accent}40`, borderRadius: "12px", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}
+            >
+              <Zap size={18} /> {updatingId === "seeding" ? "Syncing..." : "Sync All Videos"}
             </button>
           )}
           <div style={{ position: "relative" }}>
@@ -1609,21 +2670,38 @@ const ELearningPlatform = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  const globalFilteredCourses = courses.filter(c => 
+    c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.cat.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.instructor.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleSelectCourse = (course: Course) => {
+    setSelectedCourse(course);
+    setIsSearchOpen(false);
+    setSearchQuery("");
+  };
 
   const adminNav = [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { id: "courses", label: "Courses", icon: BookOpen },
-    { id: "videos", label: "Video Management", icon: Video },
+    { id: "dashboard", label: "Home", icon: Home },
+    { id: "courses", label: "Manage Courses", icon: PlaySquare },
+    { id: "videos", label: "Video Assets", icon: Video },
     { id: "quizzes", label: "Quizzes", icon: ClipboardList },
     { id: "users", label: "Students", icon: Users },
     { id: "settings", label: "Settings", icon: Settings },
   ];
 
   const studentNav = [
-    { id: "dashboard", label: "My Learning", icon: LayoutDashboard },
-    { id: "catalog", label: "Course Catalog", icon: BookOpen },
+    { id: "dashboard", label: "Home", icon: Home },
+    { id: "catalog", label: "Explore", icon: Compass },
+    { id: "subscriptions", label: "Subscriptions", icon: Youtube },
+    { id: "liked", label: "Liked Videos", icon: ThumbsUp },
+    { id: "research", label: "AI Library", icon: TrendingUp },
     { id: "quizzes", label: "Quizzes", icon: ClipboardList },
-    { id: "achievements", label: "Achievements", icon: Award },
+    { id: "achievements", label: "Library", icon: Library },
     { id: "settings", label: "Settings", icon: Settings },
   ];
 
@@ -1645,9 +2723,13 @@ const ELearningPlatform = () => {
       }
     } else {
       switch (activeTab) {
-        case "dashboard": return <StudentDashboardPage onSelectCourse={setSelectedCourse} />;
-        case "catalog": return <CourseCatalogPage onSelectCourse={setSelectedCourse} />;
+        case "dashboard": return <HomeFeedPage onSelectCourse={setSelectedCourse} />;
+        case "catalog": return <ExplorePage onSelectCourse={setSelectedCourse} />;
+        case "subscriptions": return <SubscriptionsPage onSelectCourse={setSelectedCourse} />;
+        case "liked": return <LikedVideosPage onSelectCourse={setSelectedCourse} />;
+        case "research": return <ResearchHistoryPage />;
         case "quizzes": return <QuizListPage onSelectQuiz={setSelectedQuiz} />;
+        case "achievements": return <LibraryPage onSelectCourse={setSelectedCourse} />;
         default: return <div style={{ padding: "40px", color: COLORS.text }}>Page under construction</div>;
       }
     }
@@ -1656,29 +2738,36 @@ const ELearningPlatform = () => {
   return (
     <div style={{ display: "flex", height: "100vh", backgroundColor: COLORS.primary, color: COLORS.text, fontFamily: "'DM Sans', sans-serif" }}>
       {/* Sidebar */}
-      <div style={{ width: "280px", backgroundColor: COLORS.surface, borderRight: `1px solid ${COLORS.border}`, display: "flex", flexDirection: "column", padding: "32px 20px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "48px", padding: "0 12px" }}>
-          <div style={{ width: "40px", height: "40px", backgroundColor: COLORS.accent, borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "center", color: "white" }}>
-            <BookOpen size={24} />
+      <div style={{ width: "240px", backgroundColor: COLORS.surface, borderRight: `1px solid ${COLORS.border}`, display: "flex", flexDirection: "column", padding: "12px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px", padding: "12px" }}>
+          <Menu size={24} style={{ cursor: "pointer" }} />
+          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+            <motion.div
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              style={{ display: "flex", alignItems: "center", gap: "4px" }}
+            >
+              <Zap size={28} color={COLORS.accent} fill={COLORS.accent} />
+              <h2 style={{ fontSize: "20px", fontWeight: 800, letterSpacing: "-0.05em", color: COLORS.text }}>educloud</h2>
+            </motion.div>
           </div>
-          <h2 style={{ fontSize: "22px", fontWeight: 700, letterSpacing: "-0.02em" }}>EduCloud</h2>
         </div>
 
-        <nav style={{ flex: 1, display: "flex", flexDirection: "column", gap: "8px" }}>
+        <nav style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px" }}>
           {navItems.map(item => (
             <button
               key={item.id}
               onClick={() => { setActiveTab(item.id); setSelectedQuiz(null); setSelectedCourse(null); }}
               style={{
-                display: "flex", alignItems: "center", gap: "14px", padding: "14px 16px", borderRadius: "12px", border: "none", cursor: "pointer",
-                backgroundColor: activeTab === item.id ? `${COLORS.accent}15` : "transparent",
-                color: activeTab === item.id ? COLORS.accent : COLORS.textMuted,
-                fontWeight: activeTab === item.id ? 700 : 500,
-                transition: "all 0.2s"
+                display: "flex", alignItems: "center", gap: "24px", padding: "10px 12px", borderRadius: "10px", border: "none", cursor: "pointer",
+                backgroundColor: activeTab === item.id ? COLORS.surfaceHigh : "transparent",
+                color: activeTab === item.id ? COLORS.text : COLORS.textMuted,
+                fontWeight: activeTab === item.id ? 600 : 400,
+                transition: "all 0.1s"
               }}
             >
-              <item.icon size={20} />
-              {item.label}
+              <item.icon size={22} strokeWidth={activeTab === item.id ? 2.5 : 2} />
+              <span style={{ fontSize: "14px" }}>{item.label}</span>
             </button>
           ))}
         </nav>
@@ -1709,6 +2798,57 @@ const ELearningPlatform = () => {
             <span style={{ color: COLORS.textDim, fontWeight: 600, fontSize: "14px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Platform</span>
             <ChevronRight size={16} style={{ color: COLORS.textDim }} />
             <span style={{ color: COLORS.text, fontWeight: 700, fontSize: "14px", textTransform: "uppercase", letterSpacing: "0.05em" }}>{activeTab}</span>
+          </div>
+
+          <div style={{ position: "relative", width: "400px" }}>
+            <Search size={18} style={{ position: "absolute", left: "16px", top: "50%", transform: "translateY(-50%)", color: COLORS.textDim }} />
+            <input 
+              type="text" 
+              placeholder="Search courses, instructors..." 
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setIsSearchOpen(e.target.value.length > 0);
+              }}
+              onFocus={() => searchQuery.length > 0 && setIsSearchOpen(true)}
+              style={{ width: "100%", padding: "12px 16px 12px 48px", backgroundColor: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: "12px", color: COLORS.text, outline: "none", fontSize: "14px" }}
+            />
+            
+            <AnimatePresence>
+              {isSearchOpen && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  style={{ position: "absolute", top: "100%", left: 0, width: "100%", marginTop: "8px", backgroundColor: COLORS.surface, borderRadius: "16px", border: `1px solid ${COLORS.border}`, boxShadow: "0 10px 25px rgba(0,0,0,0.2)", overflow: "hidden", zIndex: 100 }}
+                >
+                  <div style={{ maxHeight: "400px", overflowY: "auto" }}>
+                    {globalFilteredCourses.length > 0 ? (
+                      globalFilteredCourses.map(course => (
+                        <div 
+                          key={course.id} 
+                          onClick={() => handleSelectCourse(course)}
+                          style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: "12px", cursor: "pointer", borderBottom: `1px solid ${COLORS.border}` }}
+                          className="hover:bg-white/5"
+                        >
+                          <div style={{ width: "40px", height: "40px", borderRadius: "8px", backgroundColor: course.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px" }}>
+                            {course.emoji}
+                          </div>
+                          <div>
+                            <p style={{ fontWeight: 700, fontSize: "14px" }}>{course.title}</p>
+                            <p style={{ color: COLORS.textDim, fontSize: "12px" }}>{course.cat} • {course.instructor}</p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ padding: "24px", textAlign: "center", color: COLORS.textDim }}>
+                        No courses found for "{searchQuery}"
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>

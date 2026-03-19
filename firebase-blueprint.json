@@ -75,6 +75,28 @@
         "lastAccessed": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "courseId", "percent"]
+    },
+    "Like": {
+      "title": "Like",
+      "description": "User likes for courses",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "courseId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "courseId"]
+    },
+    "WatchLater": {
+      "title": "WatchLater",
+      "description": "User watch later list for courses",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "courseId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "courseId"]
     }
   },
   "firestore": {
@@ -82,6 +104,8 @@
     "/courses/{courseId}": { "schema": "Course", "description": "Course catalog" },
     "/videos/{videoId}": { "schema": "Video", "description": "Video repository" },
     "/quizzes/{quizId}": { "schema": "Quiz", "description": "Assessments" },
-    "/progress/{progressId}": { "schema": "Progress", "description": "User progress tracking" }
+    "/progress/{progressId}": { "schema": "Progress", "description": "User progress tracking" },
+    "/likes/{likeId}": { "schema": "Like", "description": "User likes for courses" },
+    "/watchLater/{watchLaterId}": { "schema": "WatchLater", "description": "User watch later list" }
   }
 }
